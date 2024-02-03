@@ -1,14 +1,14 @@
-name:                homework
-version:             0.1.0.0
-github:              "winter-yuki/homework"
-license:             BSD-3-Clause
-author:              "Andrey Stoyan"
-maintainer:          "andrey.stoyan.csam@gmail.com"
-copyright:           "2023 Andrey Stoyan"
+name: homework
+version: 0.1.0.0
+github: "winter-yuki/homework"
+license: BSD-3-Clause
+author: "Andrey Stoyan"
+maintainer: "andrey.stoyan.csam@gmail.com"
+copyright: "2023 Andrey Stoyan"
 
 extra-source-files:
-- README.md
-- CHANGELOG.md
+  - README.md
+  - CHANGELOG.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -17,43 +17,81 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/winter-yuki/homework#readme>
+description: Please see the README on GitHub at <https://github.com/winter-yuki/homework#readme>
 
 dependencies:
-- base >= 4.7 && < 5
+  - base >= 4.7 && < 5
+  - containers
+  - pretty
+  - GenericPretty
+  - random
+
+default-extensions:
+  - AllowAmbiguousTypes
+  - BlockArguments
+  - ConstraintKinds
+  - DataKinds
+  - DeriveFunctor
+  - DeriveGeneric
+  - DerivingStrategies
+  - DerivingVia
+  - FlexibleContexts
+  - FlexibleInstances
+  - GeneralizedNewtypeDeriving
+  - ImportQualifiedPost
+  - InstanceSigs
+  - KindSignatures
+  - LambdaCase
+  - MultiParamTypeClasses
+  - PolyKinds
+  - QuantifiedConstraints
+  - QuasiQuotes
+  - RankNTypes
+  - RecordWildCards
+  - ScopedTypeVariables
+  - StandaloneDeriving
+  - TemplateHaskell
+  - TupleSections
+  - TypeApplications
+  - TypeFamilies
+  - TypeOperators
+  - TypeSynonymInstances
+  - ViewPatterns
 
 ghc-options:
-- -Wall
-- -Wcompat
-- -Widentities
-- -Wincomplete-record-updates
-- -Wincomplete-uni-patterns
-- -Wmissing-export-lists
-- -Wmissing-home-modules
-- -Wpartial-fields
-- -Wredundant-constraints
+  - -Wall
+  - -Wno-unrecognised-pragmas # to use hlint pragmas in source files
+  - -Wno-unused-imports  # imported by teacher should not cause warnings
+  - -Wno-redundant-constraints # teacher provides some constraints
 
 library:
   source-dirs: src
 
 executables:
   homework-exe:
-    main:                Main.hs
-    source-dirs:         app
+    main: Main.hs
+    source-dirs: app
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - homework
+      - homework
 
 tests:
   homework-test:
-    main:                Spec.hs
-    source-dirs:         test
+    main: Spec.hs
+    source-dirs: test
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+      - -Wno-orphans
+      - -Wno-type-defaults
     dependencies:
-    - homework
+      - homework
+      - HUnit
+      - QuickCheck
+      - quickcheck-classes-base
+      - generic-arbitrary
+      - generic-random
