@@ -1,6 +1,6 @@
 module SpecBlock3 where
 
-import Block3
+--import Block3
 import TestUtils
 
 tests :: NamedTests
