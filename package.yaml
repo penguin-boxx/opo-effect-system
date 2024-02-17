@@ -38,6 +38,7 @@ default-extensions:
   - DerivingVia
   - FlexibleContexts
   - FlexibleInstances
+  - GADTs
   - GeneralizedNewtypeDeriving
   - ImportQualifiedPost
   - InstanceSigs
