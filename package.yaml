@@ -36,6 +36,7 @@ default-extensions:
   - DeriveTraversable
   - DerivingStrategies
   - DerivingVia
+  - EmptyCase
   - FlexibleContexts
   - FlexibleInstances
   - GADTs

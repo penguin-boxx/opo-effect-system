@@ -15,7 +15,7 @@ import Data.Proxy
 import System.Environment
 import Test.HUnit (Test (..), assertFailure)
 import Test.HUnit qualified as HU
-import Test.QuickCheck (Arbitrary (..))
+import Test.QuickCheck (Arbitrary (..), (===), (.&&.), (==>))
 import Test.QuickCheck qualified as QC
 import Test.QuickCheck.Classes.Base qualified as QC
 import Test.QuickCheck.Gen qualified as QC
