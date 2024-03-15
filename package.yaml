@@ -46,6 +46,7 @@ default-extensions:
   - KindSignatures
   - LambdaCase
   - MultiParamTypeClasses
+  - PatternSynonyms
   - PolyKinds
   - QuantifiedConstraints
   - QuasiQuotes
