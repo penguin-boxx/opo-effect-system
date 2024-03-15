@@ -13,7 +13,7 @@ import Data.List qualified as List
 import Data.List.NonEmpty qualified as NE
 import Data.Proxy
 import System.Environment
-import Test.HUnit (Test (..), assertFailure)
+import Test.HUnit (Test (..), assertFailure, assertEqual, assertBool)
 import Test.HUnit qualified as HU
 import Test.QuickCheck (Arbitrary (..), (===), (.&&.), (==>))
 import Test.QuickCheck qualified as QC
