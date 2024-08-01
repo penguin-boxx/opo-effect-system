@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.35.1.
+-- This file has been generated from package.yaml by hpack version 0.36.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -27,7 +27,7 @@ library
       Block1
       Block2
       Block3
-      Lib
+      Example
       Utils
   other-modules:
       Paths_homework
@@ -40,18 +40,23 @@ library
       BlockArguments
       ConstraintKinds
       DataKinds
+      DeriveFoldable
       DeriveFunctor
       DeriveGeneric
+      DeriveTraversable
       DerivingStrategies
       DerivingVia
+      EmptyCase
       FlexibleContexts
       FlexibleInstances
+      GADTs
       GeneralizedNewtypeDeriving
       ImportQualifiedPost
       InstanceSigs
       KindSignatures
       LambdaCase
       MultiParamTypeClasses
+      PatternSynonyms
       PolyKinds
       QuantifiedConstraints
       QuasiQuotes
@@ -71,8 +76,65 @@ library
       GenericPretty
     , base >=4.7 && <5
     , containers
+    , istari
     , pretty
     , random
+  default-language: Haskell2010
+
+library istari
+  exposed-modules:
+      Gandalf
+  other-modules:
+      Paths_homework
+  autogen-modules:
+      Paths_homework
+  hs-source-dirs:
+      istari
+  default-extensions:
+      AllowAmbiguousTypes
+      BlockArguments
+      ConstraintKinds
+      DataKinds
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveTraversable
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      InstanceSigs
+      KindSignatures
+      LambdaCase
+      MultiParamTypeClasses
+      PatternSynonyms
+      PolyKinds
+      QuantifiedConstraints
+      QuasiQuotes
+      RankNTypes
+      RecordWildCards
+      ScopedTypeVariables
+      StandaloneDeriving
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      TypeSynonymInstances
+      ViewPatterns
+      TemplateHaskell
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints
+  build-depends:
+      GenericPretty
+    , base >=4.7 && <5
+    , containers
+    , pretty
+    , random
+    , template-haskell
   default-language: Haskell2010
 
 executable homework-exe
@@ -88,18 +150,23 @@ executable homework-exe
       BlockArguments
       ConstraintKinds
       DataKinds
+      DeriveFoldable
       DeriveFunctor
       DeriveGeneric
+      DeriveTraversable
       DerivingStrategies
       DerivingVia
+      EmptyCase
       FlexibleContexts
       FlexibleInstances
+      GADTs
       GeneralizedNewtypeDeriving
       ImportQualifiedPost
       InstanceSigs
       KindSignatures
       LambdaCase
       MultiParamTypeClasses
+      PatternSynonyms
       PolyKinds
       QuantifiedConstraints
       QuasiQuotes
@@ -142,18 +209,23 @@ test-suite homework-test
       BlockArguments
       ConstraintKinds
       DataKinds
+      DeriveFoldable
       DeriveFunctor
       DeriveGeneric
+      DeriveTraversable
       DerivingStrategies
       DerivingVia
+      EmptyCase
       FlexibleContexts
       FlexibleInstances
+      GADTs
       GeneralizedNewtypeDeriving
       ImportQualifiedPost
       InstanceSigs
       KindSignatures
       LambdaCase
       MultiParamTypeClasses
+      PatternSynonyms
       PolyKinds
       QuantifiedConstraints
       QuasiQuotes

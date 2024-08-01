@@ -70,6 +70,16 @@ ghc-options:
 
 library:
   source-dirs: src
+  dependencies:
+    - istari
+
+internal-libraries:
+  istari:
+    default-extensions:
+      - TemplateHaskell
+    source-dirs: istari
+    dependencies:
+      - template-haskell
 
 executables:
   homework-exe:
