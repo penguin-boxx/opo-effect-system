@@ -67,9 +67,18 @@ ghc-options:
   - -Wno-unrecognised-pragmas # to use hlint pragmas in source files
   - -Wno-unused-imports  # imported by teacher should not cause warnings
   - -Wno-redundant-constraints # teacher provides some constraints
+  - -Wno-noncanonical-monad-instances
 
 library:
   source-dirs: src
+  dependencies:
+    - hw-test
+
+internal-libraries:
+  hw-test:      
+    source-dirs: hw-test/src
+    dependencies:
+      - template-haskell    
 
 executables:
   homework-exe:
@@ -83,6 +92,11 @@ executables:
       - homework
 
 tests:
+  hw-test-test:
+    main: Spec.hs
+    source-dirs: hw-test/test
+    dependencies:
+      - hw-test
   homework-test:
     main: Spec.hs
     source-dirs: test
@@ -93,6 +107,7 @@ tests:
       - -Wno-orphans
       - -Wno-type-defaults
     dependencies:
+      - hw-test
       - homework
       - HUnit
       - QuickCheck

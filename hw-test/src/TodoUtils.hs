@@ -4,12 +4,12 @@
 -- | Технический модуль со вспомогательными определениями.
 -- Понимать реализацию не нужно.
 -- Оставь надежду всяк сюда входящий.
-module Utils
+module TodoUtils
   ( module Data.Typeable
   , module Data.Kind
   , module GHC.Generics
   , module Text.PrettyPrint.GenericPretty
-  , TodoException, Todoable (..), todo'
+  , TodoException(TodoException), Todoable (..), todo'
   , OutShow (..)
   , (:>), Result1, Result2, Dispatcher (..)
   , wrap1, wrap2, unwrap1, unwrap2
