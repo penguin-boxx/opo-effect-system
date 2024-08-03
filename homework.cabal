@@ -27,8 +27,6 @@ library
       Block1
       Block2
       Block3
-      Example
-      Utils
   other-modules:
       Paths_homework
   autogen-modules:
@@ -71,25 +69,27 @@ library
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances
   build-depends:
       GenericPretty
     , base >=4.7 && <5
     , containers
-    , istari
+    , hw-test
     , pretty
     , random
   default-language: Haskell2010
 
-library istari
+library hw-test
   exposed-modules:
-      Gandalf
+      TodoMacro
+      TodoUtils
+      Utils
   other-modules:
       Paths_homework
   autogen-modules:
       Paths_homework
   hs-source-dirs:
-      istari
+      hw-test/src
   default-extensions:
       AllowAmbiguousTypes
       BlockArguments
@@ -126,8 +126,7 @@ library istari
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-      TemplateHaskell
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances
   build-depends:
       GenericPretty
     , base >=4.7 && <5
@@ -181,7 +180,7 @@ executable homework-exe
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       GenericPretty
     , base >=4.7 && <5
@@ -240,7 +239,7 @@ test-suite homework-test
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -threaded -rtsopts -with-rtsopts=-N -Wno-orphans -Wno-type-defaults
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances -threaded -rtsopts -with-rtsopts=-N -Wno-orphans -Wno-type-defaults
   build-depends:
       GenericPretty
     , HUnit
@@ -250,7 +249,63 @@ test-suite homework-test
     , generic-arbitrary
     , generic-random
     , homework
+    , hw-test
     , pretty
     , quickcheck-classes-base
+    , random
+  default-language: Haskell2010
+
+test-suite hw-test-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_homework
+  autogen-modules:
+      Paths_homework
+  hs-source-dirs:
+      hw-test/test
+  default-extensions:
+      AllowAmbiguousTypes
+      BlockArguments
+      ConstraintKinds
+      DataKinds
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveTraversable
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      InstanceSigs
+      KindSignatures
+      LambdaCase
+      MultiParamTypeClasses
+      PatternSynonyms
+      PolyKinds
+      QuantifiedConstraints
+      QuasiQuotes
+      RankNTypes
+      RecordWildCards
+      ScopedTypeVariables
+      StandaloneDeriving
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilies
+      TypeOperators
+      TypeSynonymInstances
+      ViewPatterns
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances
+  build-depends:
+      GenericPretty
+    , base >=4.7 && <5
+    , containers
+    , hw-test
+    , pretty
     , random
   default-language: Haskell2010
