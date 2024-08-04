@@ -11,22 +11,27 @@ import Control.Monad
 import Language.Haskell.TH
 import TodoException (TodoException (..))
 
-mkTodoString :: String -> String
-mkTodoString x = "Unimplemented function '" <> x <> "'!"
+type DataName = String
+type FunctionName = String
+type ClassName = String
+
+data EntryInfo = EntryInfo
+  { dataName :: DataName
+  , className :: ClassName
+  , functionName :: FunctionName
+  }
+
+mkTodoString :: EntryInfo -> String
+mkTodoString info = className info 
+  <> "." <> functionName info <> " for " <> dataName info 
 
 mkVarE :: String -> Exp
 mkVarE = VarE . mkName
 
-mkConE :: String -> Exp
-mkConE = ConE . mkName
+todoE :: EntryInfo -> Exp
+todoE info = AppE (mkVarE "todo") (LitE $ StringL $ mkTodoString info)
 
-todoE :: Name -> Exp
-todoE name = AppE
-  (mkVarE "throw")
-  (AppE (mkConE "TodoException")
-  (LitE $ StringL $ mkTodoString $ nameBase name))
-
-todoB :: Name -> Body
+todoB :: EntryInfo -> Body
 todoB = NormalB . todoE
 
 kindToInt :: Kind -> Int
@@ -41,9 +46,6 @@ asDataType = ConT
 concatTypes :: [Type] -> Type
 concatTypes = foldl1 AppT
 
-bndrsFromNames :: [Name] -> [TyVarBndr Specificity]
-bndrsFromNames = map (`PlainTV` SpecifiedSpec)
-
 getKindOrFail :: [TyVarBndr ()] -> Kind
 getKindOrFail [KindedTV _ _ kind] = kind
 getKindOrFail _ = error "Unexpected kind"
@@ -55,7 +57,7 @@ todoImpl dataName className = do
   let kind = getKindOrFail params
   let kindN = kindToInt kind
   let kindM = length bndrs
-  let decs = map sigToDec $ filter isSigD sigs
+  let decs = map (sigToDec (show dataName) (show className)) $ filter isSigD sigs
   instanceType <-
     if kindN == kindM + 1
       then pure $ AppT (asDataType className) (asDataType dataName)
@@ -68,9 +70,9 @@ todoImpl dataName className = do
       SigD _ _ -> True
       _ -> False
 
-    sigToDec :: Dec -> Dec
-    sigToDec (SigD nm _) = FunD nm [Clause [] (todoB nm) []]
-    sigToDec _ = error "only SigD expected!"
+    sigToDec :: DataName -> ClassName -> Dec -> Dec
+    sigToDec dn cn (SigD nm _) = FunD nm [Clause [] (todoB (EntryInfo dn cn (nameBase nm))) []]
+    sigToDec _ _ _ = error "only SigD expected!"
 
     mapNamesToType :: [Name] -> Type
-    mapNamesToType vs = ForallT (bndrsFromNames vs) [] (AppT (ConT className) $ concatTypes (ConT dataName : map VarT vs))
+    mapNamesToType = AppT (ConT className) . concatTypes . (ConT dataName : ) . map VarT
