@@ -1,12 +1,15 @@
-module TodoMacro 
-  ( todoImpl
+-- | Генерация placeholder-инстансов.
+module TodoMacro
+  ( -- reexports support generated code
+    module Control.Exception
+  , module TodoException
+  , todoImpl
   ) where
 
+import Control.Exception (throw)
 import Control.Monad
-import Data.Map (Map)
-import Data.Map qualified as M
 import Language.Haskell.TH
-import Language.Haskell.TH.Syntax
+import TodoException (TodoException (..))
 
 mkTodoString :: String -> String
 mkTodoString x = "Unimplemented function '" <> x <> "'!"
@@ -18,7 +21,10 @@ mkConE :: String -> Exp
 mkConE = ConE . mkName
 
 todoE :: Name -> Exp
-todoE name = AppE (mkVarE "throw") (AppE (mkConE "TodoException") (LitE $ StringL $ mkTodoString $ nameBase name))
+todoE name = AppE
+  (mkVarE "throw")
+  (AppE (mkConE "TodoException")
+  (LitE $ StringL $ mkTodoString $ nameBase name))
 
 todoB :: Name -> Body
 todoB = NormalB . todoE
@@ -68,4 +74,3 @@ todoImpl dataName className = do
 
     mapNamesToType :: [Name] -> Type
     mapNamesToType vs = ForallT (bndrsFromNames vs) [] (AppT (ConT className) $ concatTypes (ConT dataName : map VarT vs))
-

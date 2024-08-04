@@ -1,10 +1,10 @@
 name: homework
 version: 0.1.0.0
-github: "winter-yuki/homework"
+github: "fpcourse-materials/haskell-homework-template"
 license: BSD-3-Clause
 author: "Andrey Stoyan"
 maintainer: "andrey.stoyan.csam@gmail.com"
-copyright: "2023 Andrey Stoyan"
+copyright: "2024 Andrey Stoyan"
 
 extra-source-files:
   - README.md
@@ -67,16 +67,16 @@ ghc-options:
   - -Wno-unrecognised-pragmas # to use hlint pragmas in source files
   - -Wno-unused-imports  # imported by teacher should not cause warnings
   - -Wno-redundant-constraints # teacher provides some constraints
-  - -Wno-noncanonical-monad-instances
+  - -Wno-noncanonical-monad-instances # can be emitted by macro-generated code
 
 library:
   source-dirs: src
   dependencies:
-    - hw-test
+    - meta-utils
 
 internal-libraries:
-  hw-test:      
-    source-dirs: hw-test/src
+  meta-utils:      
+    source-dirs: meta-utils/src
     dependencies:
       - template-haskell    
 
@@ -92,11 +92,12 @@ executables:
       - homework
 
 tests:
-  hw-test-test:
+  meta-utils-test:
     main: Spec.hs
-    source-dirs: hw-test/test
+    source-dirs: meta-utils/test
     dependencies:
-      - hw-test
+      - meta-utils
+      - HUnit
   homework-test:
     main: Spec.hs
     source-dirs: test
@@ -107,7 +108,7 @@ tests:
       - -Wno-orphans
       - -Wno-type-defaults
     dependencies:
-      - hw-test
+      - meta-utils
       - homework
       - HUnit
       - QuickCheck

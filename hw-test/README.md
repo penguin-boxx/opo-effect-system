@@ -1,3 +1,0 @@
-# HW-TEST
-
-Test framework

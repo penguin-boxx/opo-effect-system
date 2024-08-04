@@ -4,7 +4,7 @@ module TestUtils
  , module Data.Proxy
  , module Test.HUnit
  , module Test.QuickCheck
- , module Utils
+ , module MetaUtils
  ) where
 
 import Control.Exception
@@ -19,7 +19,7 @@ import Test.QuickCheck (Arbitrary (..), (===), (.&&.), (==>))
 import Test.QuickCheck qualified as QC
 import Test.QuickCheck.Classes.Base qualified as QC
 import Test.QuickCheck.Gen qualified as QC
-import Utils
+import MetaUtils
 
 type NamedTests = [(String, Test)]
 

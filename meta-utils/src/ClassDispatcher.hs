@@ -1,91 +1,25 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ImpredicativeTypes #-}
 
--- | Технический модуль со вспомогательными определениями.
--- Понимать реализацию не нужно.
+-- | Legacy placeholder-mechanism for type classes.
 -- Оставь надежду всяк сюда входящий.
-module TodoUtils
-  ( module Data.Typeable
-  , module Data.Kind
-  , module GHC.Generics
-  , module Text.PrettyPrint.GenericPretty
-  , TodoException(TodoException), Todoable (..), todo'
-  , OutShow (..)
-  , (:>), Result1, Result2, Dispatcher (..)
+module ClassDispatcher
+  ( (:>), Result1, Result2, Dispatcher (..)
   , wrap1, wrap2, unwrap1, unwrap2
   , Id (..)
   , Done, DoneSelector (..)
   , Todo, TodoSelector (..)
   , Selector, F, TLookupC1, TLookupC2
-  , TraversableBox (..), todoTraversable
   ) where
 
 import Control.Applicative
-import Control.Exception
 import Data.Coerce
 import Data.Foldable
 import Data.Functor.Identity
-import Data.Int
 import Data.Kind
-import Data.Proxy
-import Data.Set qualified as Set
 import Data.Typeable
 import GHC.Generics (Generic)
-import GHC.TypeLits
-import Text.PrettyPrint qualified as PP
-import Text.PrettyPrint.GenericPretty
-
-newtype TodoException = TodoException String
-instance Exception TodoException
-instance Show TodoException where
-  show (TodoException msg) = "Not implemented: " <> msg
-
-class Todoable s where
-  todo :: s -> forall a. a
-
-instance Todoable String where
-  todo name = throw $ TodoException name
-
-instance (KnownSymbol funcName, Typeable constraint, Typeable ty)
-  => Todoable (Proxy '(funcName :: Symbol, constraint, ty)) where
-  todo Proxy = todo $ typeName @constraint <> "." <> symbolVal (Proxy @funcName) <>
-    if typeName @ty `Set.member` ignore then "" else " for " <> typeName @ty
-    where
-      -- Sometimes not implemented dispatch happens for standard classes, do not confuse users in that case.
-      ignore = Set.fromList [typeName @Bool, typeName @Int, typeName @Int8, typeName @Int64, typeName @String]
-
-typeName :: forall a. Typeable a => String
-typeName = tyConName $ typeRepTyCon $ typeRep $ Proxy @a
-
-todo' :: forall (s :: Symbol) c a. (KnownSymbol s, Typeable c, Typeable a) => forall b. b
-todo' = todo $ Proxy @'(s, c, a)
-
-
--- Make `Out` from `Show` simply by wrapping data into `OutShow` and
--- calling `Out` methods on the wrapper.
-newtype OutShow a = OutShow { getOutShow :: a }
-  deriving newtype (Show, Read, Eq, Ord, Enum, Bounded, Num, Semigroup, Monoid)
-  deriving stock (Generic, Functor)
-  deriving Applicative via Identity
-
-instance Show a => Out (OutShow a) where
-  doc = PP.text . show . getOutShow
-  docPrec = const doc
-
-
--- Traversable cannot be tested with a common method:
--- https://ryanglscott.github.io/2018/06/22/quantifiedconstraints-and-the-trouble-with-traversable/
-data TraversableBox (t :: Type -> Type) = TraversableBox
-  { sequenceBox :: forall f a. Applicative f => t (f a) -> f (t a)
-  , traverseBox :: forall f a b. Applicative f => (a -> f b) -> t a -> f (t b)
-  }
-
-todoTraversable :: forall t. Typeable t => TraversableBox t
-todoTraversable = TraversableBox
-  { sequenceBox = todo' @"sequence" @Traversable @t
-  , traverseBox = todo' @"traverse" @Traversable @t
-  }
-
+import TodoException
 
 type (key :: k) :> (value :: k') = '(key, value)
 type TMap k v = [(k, v)]
