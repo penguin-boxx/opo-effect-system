@@ -5,7 +5,7 @@ import Test.HUnit qualified as HU
 
 data Data a = Ok !a | NotOk deriving Show
 
---todoImpl ''Data ''Eq
+todoImpl ''Data ''Eq
 todoImpl ''Data ''Functor
 todoImpl ''Data ''Applicative
 todoImpl ''Data ''Monad
@@ -25,6 +25,7 @@ testMacro :: Test
 testMacro = TestList
   [ TestCase $ assertThrows $ fmap (+1) value
   , TestCase $ assertThrows $ value >>= \x -> value >>= \y -> pure (x + y)
+  , TestCase $ assertThrows $ value == value
   ]
   where
     value = Ok 42 :: Data Int
