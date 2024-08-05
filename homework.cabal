@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.36.0.
+-- This file has been generated from package.yaml by hpack version 0.35.1.
 --
 -- see: https://github.com/sol/hpack
 
@@ -69,7 +69,7 @@ library
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances -Wno-name-shadowing
   build-depends:
       GenericPretty
     , base >=4.7 && <5
@@ -128,7 +128,7 @@ library meta-utils
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances -Wno-name-shadowing
   build-depends:
       GenericPretty
     , base >=4.7 && <5
@@ -182,7 +182,7 @@ executable homework-exe
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances -Wno-name-shadowing -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       GenericPretty
     , base >=4.7 && <5
@@ -241,7 +241,7 @@ test-suite homework-test
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances -threaded -rtsopts -with-rtsopts=-N -Wno-orphans -Wno-type-defaults
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances -Wno-name-shadowing -threaded -rtsopts -with-rtsopts=-N -Wno-orphans -Wno-type-defaults
   build-depends:
       GenericPretty
     , HUnit
@@ -302,7 +302,7 @@ test-suite meta-utils-test
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monad-instances -Wno-name-shadowing
   build-depends:
       GenericPretty
     , HUnit
