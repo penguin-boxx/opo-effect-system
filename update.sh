@@ -7,7 +7,6 @@ set -e
 git push origin main:main # To have main as a default branch on github (first push)
 
 git checkout solutions
-git pull template main
 sh check.sh "" "-Wunused-imports -Wredundant-constraints"
 if [ "$1" = "" ]
 then
@@ -15,6 +14,7 @@ then
 else
   git commit -am "[no ci] $1" --allow-empty
 fi
+git pull template main
 git push origin solutions:solutions
 
 git checkout main
