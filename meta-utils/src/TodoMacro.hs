@@ -22,8 +22,7 @@ data EntryInfo = EntryInfo
   }
 
 mkTodoString :: EntryInfo -> String
-mkTodoString info = className info 
-  <> "." <> functionName info <> " for " <> dataName info 
+mkTodoString EntryInfo {..} = className <> "." <> functionName <> " for " <> dataName
 
 mkVarE :: String -> Exp
 mkVarE = VarE . mkName
@@ -34,45 +33,31 @@ todoE info = AppE (mkVarE "todo") (LitE $ StringL $ mkTodoString info)
 todoB :: EntryInfo -> Body
 todoB = NormalB . todoE
 
-kindToInt :: Kind -> Int
-kindToInt ArrowT = 0
-kindToInt StarT = 1
-kindToInt (AppT x y) = kindToInt x + kindToInt y
-kindToInt _ = error "Unexpected type"
+nKindArgs :: Kind -> Int
+nKindArgs StarT = 1
+nKindArgs (AppT _ rest) = 1 + nKindArgs rest
+nKindArgs _ = error "Unexpected kind form"
 
-asDataType :: Name -> Type
-asDataType = ConT
+isSigD :: Dec -> Bool
+isSigD = \case
+  SigD _ _ -> True
+  _ -> False
 
-concatTypes :: [Type] -> Type
-concatTypes = foldl1 AppT
+sigToDec :: DataName -> ClassName -> Dec -> Dec
+sigToDec dn cn (SigD nm _) = FunD nm [Clause [] (todoB (EntryInfo dn cn (nameBase nm))) []]
+sigToDec _ _ _ = error "only SigD expected!"
 
-getKindOrFail :: [TyVarBndr ()] -> Kind
-getKindOrFail [KindedTV _ _ kind] = kind
-getKindOrFail _ = error "Unexpected kind"
+mkInstanceTarget :: Name -> Name -> Int -> Int -> Q Type
+mkInstanceTarget className dataName nExpectedTyArgs nDataTyArgs = do
+  let nSpecializeVars = nDataTyArgs - nExpectedTyArgs + 1
+  vars <- replicateM nSpecializeVars (VarT <$> newName "a")
+  let specializedData = foldl AppT (ConT dataName) vars
+  pure $ AppT (ConT className) specializedData
 
 todoImpl :: Name -> Name -> Q [Dec]
 todoImpl dataName className = do
-  ClassI (ClassD _ _ params _ sigs) _ <- reify className
-  TyConI (DataD _ _ bndrs _ _ _) <- reify dataName
-  let kind = getKindOrFail params
-  let kindN = kindToInt kind
-  let kindM = length bndrs
-  let decs = map (sigToDec (show dataName) (show className)) $ filter isSigD sigs
-  instanceType <-
-    if kindN == kindM + 1
-      then pure $ AppT (asDataType className) (asDataType dataName)
-      else mapNamesToType 
-                <$> (replicateM (kindM - kindN + 1) (newName "a") :: Q [Name])
-  pure [InstanceD Nothing [] instanceType decs]
-  where
-    isSigD :: Dec -> Bool
-    isSigD d = case d of
-      SigD _ _ -> True
-      _ -> False
-
-    sigToDec :: DataName -> ClassName -> Dec -> Dec
-    sigToDec dn cn (SigD nm _) = FunD nm [Clause [] (todoB (EntryInfo dn cn (nameBase nm))) []]
-    sigToDec _ _ _ = error "only SigD expected!"
-
-    mapNamesToType :: [Name] -> Type
-    mapNamesToType = AppT (ConT className) . concatTypes . (ConT dataName : ) . map VarT
+  ClassI (ClassD _ _ [KindedTV _ _ kind] _ sigs) _ <- reify className
+  TyConI (DataD _ _ tyArgs _ _ _) <- reify dataName
+  target <- mkInstanceTarget className dataName (nKindArgs kind) (length tyArgs)
+  let decls = map (sigToDec (show dataName) (show className)) $ filter isSigD sigs
+  pure [InstanceD Nothing [] target decls]
