@@ -1,11 +1,12 @@
 #!/usr/bin/env sh
-# For course staff only
+# For course staff only. Update homework.
 # Example: sh update.sh "Commit message"
 set -e
 
 git push origin main:main # To have main as a default branch on github (first push)
 
 git checkout solutions
+git pull upstream main
 sh check.sh "" "-Wunused-imports -Wredundant-constraints"
 if [ "$1" = "" ]
 then
