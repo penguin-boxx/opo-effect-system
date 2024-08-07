@@ -1,6 +1,9 @@
 #!/usr/bin/env sh
 # For course staff only. Updates homework in template repo.
-# Expects: remote origin - homework template, remote template - internal template.
+# Expects:
+#  * remote origin - homework template
+#  * remote template - internal template
+#  * remote public - homework template in the classroom organization
 # Example: sh update.sh "Commit message"
 set -e
 
@@ -21,5 +24,6 @@ git checkout main
 git merge solutions -m "[no ci] Merged with solutions"
 sh check-build.sh
 git push origin main:main
+git push public main:main
 
 git checkout solutions
