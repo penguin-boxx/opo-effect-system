@@ -1,7 +1,7 @@
 module SpecBlock2 where
 
 --import Block2
-import TestUtils
+import Test.Utils
 
 tests :: NamedTests
 tests = nameTests 2
