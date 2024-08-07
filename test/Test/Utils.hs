@@ -1,5 +1,5 @@
 module Test.Utils
- ( module TestUtils
+ ( module Test.Utils
  , module Data.Coerce
  , module Data.Proxy
  , module Test.HUnit
