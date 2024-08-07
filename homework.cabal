@@ -201,7 +201,6 @@ test-suite homework-test
       SpecBlock3
       Test.HUnit.TextAdvanced
       Test.Utils
-      TestUtils
       Paths_homework
   autogen-modules:
       Paths_homework
