@@ -1,6 +1,6 @@
 cabal-version: 2.2
 
--- This file has been generated from package.yaml by hpack version 0.35.1.
+-- This file has been generated from package.yaml by hpack version 0.36.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -199,6 +199,8 @@ test-suite homework-test
       SpecBlock1
       SpecBlock2
       SpecBlock3
+      Test.HUnit.TextAdvanced
+      Test.Utils
       TestUtils
       Paths_homework
   autogen-modules:

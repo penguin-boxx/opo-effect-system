@@ -1,10 +1,11 @@
-module TestUtils
+module Test.Utils
  ( module TestUtils
  , module Data.Coerce
  , module Data.Proxy
  , module Test.HUnit
  , module Test.QuickCheck
  , module MetaUtils
+ , NamedTests
  ) where
 
 import Control.Exception
@@ -14,29 +15,28 @@ import Data.List.NonEmpty qualified as NE
 import Data.Proxy
 import System.Environment
 import Test.HUnit (Test (..), assertFailure, assertEqual, assertBool)
-import Test.HUnit qualified as HU
+import Test.HUnit.TextAdvanced (runTestMRAndExit, NamedTests)
 import Test.QuickCheck (Arbitrary (..), (===), (.&&.), (==>))
 import Test.QuickCheck qualified as QC
 import Test.QuickCheck.Classes.Base qualified as QC
 import Test.QuickCheck.Gen qualified as QC
 import MetaUtils
 
-type NamedTests = [(String, Test)]
-
 testMain :: NamedTests -> IO ()
 testMain tests = do
   activeTestNames <- concatMap words <$> getArgs
   putStrLn $ "\nExecuting: " <> showNames activeTestNames
   let activeTests = filterTests activeTestNames tests
-  HU.runTestTTAndExit activeTests
+  runTestMRAndExit activeTests
   where
     showNames names
       | null names = "all"
       | otherwise = List.intercalate ", " names
 
-filterTests :: [String] -> NamedTests -> Test
-filterTests names tests = TestList
-  [test | (name, test) <- tests, name `elem` names || null names]
+filterTests :: [String] -> NamedTests -> NamedTests
+filterTests names tests = filter cond tests 
+  where
+    cond (name, _) = name `elem `names || null names
 
 propertyToTestIO :: QC.Testable prop => String -> IO prop -> Test
 propertyToTestIO description property = TestCase $
@@ -60,8 +60,9 @@ lawsToTest QC.Laws {..} = TestList $ uncurry mkTest <$> lawsProperties
     mkTest name = propertyToTest (lawsTypeclass <> "." <> name <> " satisfied")
 
 nameTests :: Int -> [Test] -> NamedTests
-nameTests iBlock = zipWith mkNamedTest [1 :: Int ..]
+nameTests iBlock = map wrapToTestLabel . zipWith mkNamedTest [1 :: Int ..]
   where
+    wrapToTestLabel (label, test) = (label, TestLabel label test)
     mkNamedTest iTask test = (show iBlock <> "." <> show iTask, test)
 
 data TooEagerException = TooEagerException
