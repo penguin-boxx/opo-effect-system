@@ -15,7 +15,7 @@ module Test.Prelude
 import Data.Coerce (Coercible)
 import Data.Proxy
 import Test.HUnit (Test (..), assertFailure, assertEqual, assertBool)
-import Test.QuickCheck (Arbitrary (..), (===), (.&&.), (==>))
+import Test.QuickCheck
 import Test.QuickCheck.Arbitrary.Generic
 import Test.QuickCheck.Classes.Base
 import Test.Run
