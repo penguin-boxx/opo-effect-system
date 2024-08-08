@@ -19,7 +19,7 @@ then
 else
   git commit -am "[no ci] $1" --allow-empty
 fi
-git pull template main -m "[no ci] Merged with template"
+git pull template main --no-edit
 git push origin solutions:solutions
 
 git checkout main
