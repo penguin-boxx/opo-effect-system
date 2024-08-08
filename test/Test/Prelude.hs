@@ -5,6 +5,8 @@ module Test.Prelude
   , module Test.Lazy
   , module Test.Properties
   , module Test.QuickCheck
+  , module Test.QuickCheck.Arbitrary.Generic
+  , module Test.QuickCheck.Classes.Base
   , module Test.Run
   , module Test.Utils
   , module MetaUtils
@@ -14,6 +16,8 @@ import Data.Coerce (Coercible)
 import Data.Proxy
 import Test.HUnit (Test (..), assertFailure, assertEqual, assertBool)
 import Test.QuickCheck (Arbitrary (..), (===), (.&&.), (==>))
+import Test.QuickCheck.Arbitrary.Generic
+import Test.QuickCheck.Classes.Base
 import Test.Run
 import Test.Lazy
 import Test.Properties
