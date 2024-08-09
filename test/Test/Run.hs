@@ -50,7 +50,7 @@ statusFromCounts :: Counts -> TestStatus
 statusFromCounts Counts {..}
   | (errors == 0) && (failures == 0) = TestPassed
   | errors + failures < tried = TestPartial $
-      fromIntegral (errors + failures) / fromIntegral tried
+      1 - fromIntegral (errors + failures) / fromIntegral tried
   | otherwise = TestFailed
 
 showCounts :: Counts -> String
@@ -78,13 +78,17 @@ runTests tests = collectReport <$> forM tests \(name, test) -> do
   pure (counts, result)
   where
     reportStart _ _ = pure () -- per test case
-    reportError = reportProblem "[ERROR] "
+    reportError loc msg =
+      -- Hack to distinguish not implemented cases
+      let isTodo = "Not implemented" `List.isSubsequenceOf` msg in
+      let prefix = if isTodo then "[TODO] " else "[ERROR] " in
+      reportProblem prefix loc msg
     reportFailure = reportProblem "[FAILURE] "
-    reportProblem prefix _ msg HU.State {..} () = putStr $ padLines 4 $
+    reportProblem prefix _ msg HU.State{..} () = putStr $ padLines 4 $
       prefix <> showPath path <> " " <> msg <> if '\n' `elem` msg then "\n" else ""
     reportSummary counts = putStr $ padLines 4 $ case statusFromCounts counts of
       TestPassed -> "Done :)"
-      TestPartial percent -> "Test has " <> show (floor $ percent * 100) <> "% of failures :|"
+      TestPartial percent -> "In progress, " <> show (floor $ percent * 100) <> "% tests remains :|"
       TestFailed -> "Failed :("
 
 padLines :: Int -> String -> String

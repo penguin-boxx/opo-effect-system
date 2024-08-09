@@ -8,7 +8,6 @@ module TodoMacro
 
 import Control.Exception (throw)
 import Control.Monad
-import Data.Functor
 import Language.Haskell.TH
 import TodoException (TodoException (..))
 
@@ -56,14 +55,14 @@ mkInstanceTarget className dataName nExpectedTyArgs nDataTyArgs = do
   pure $ AppT (ConT className) specializedData
 
 todoImpl :: Name -> Name -> Q [Dec]
-todoImpl dataName className = do
-  (kind, sigs) <- reify className <&> \case
-    ClassI (ClassD _ _ [KindedTV _ _ kind] _ sigs) _ -> (kind, sigs)
-    x -> error $ "expected class, got " <> show x
-  tyArgs <- reify dataName <&> \case
-    TyConI (DataD _ _ tyArgs _ _ _) -> tyArgs
-    TyConI (NewtypeD _ _ tyArgs _ _ _) -> tyArgs
-    x -> error $ "data or newtype expected, got " <> show x
+todoImpl className dataName = do
+  (kind, sigs) <- reify className >>= \case
+    ClassI (ClassD _ _ [KindedTV _ _ kind] _ sigs) _ -> pure (kind, sigs)
+    x -> fail $ "expected class, got " <> show x
+  tyArgs <- reify dataName >>= \case
+    TyConI (DataD _ _ tyArgs _ _ _) -> pure tyArgs
+    TyConI (NewtypeD _ _ tyArgs _ _ _) -> pure tyArgs
+    x -> fail $ "data or newtype expected, got " <> show x
   target <- mkInstanceTarget className dataName (nKindArgs kind) (length tyArgs)
   let decls = map (sigToDec (show dataName) (show className)) $ filter isSigD sigs
   pure [InstanceD Nothing [] target decls]

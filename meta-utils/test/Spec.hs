@@ -8,13 +8,13 @@ data Data a = Ok !a | NotOk deriving Show
 data Data' f a = Ok' !(f a) | NotOk' deriving Show
 class MonadTrans t where lift :: m a -> t m a
 
-todoImpl ''Data ''Eq
-todoImpl ''Data ''Functor
-todoImpl ''Data ''Applicative
-todoImpl ''Data ''Monad
-todoImpl ''Data ''Foldable
-todoImpl ''Data ''Traversable
-todoImpl ''Data' ''MonadTrans
+todoImpl ''Eq ''Data
+todoImpl ''Functor ''Data
+todoImpl ''Applicative ''Data
+todoImpl ''Monad ''Data
+todoImpl ''Foldable ''Data
+todoImpl ''Traversable ''Data
+todoImpl ''MonadTrans ''Data'
 
 main :: IO ()
 main = HU.runTestTTAndExit $ TestList
