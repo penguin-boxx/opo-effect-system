@@ -80,11 +80,11 @@ runTests tests = collectReport <$> forM tests \(name, test) -> do
     reportStart _ _ = pure () -- per test case
     reportError = reportProblem "[ERROR] "
     reportFailure = reportProblem "[FAILURE] "
-    reportProblem prefix _ msg HU.State {..} () = putStrLn $
-      padLines 4 $ prefix <> showPath path <> " " <> msg
+    reportProblem prefix _ msg HU.State {..} () = putStr $ padLines 4 $
+      prefix <> showPath path <> " " <> msg <> if '\n' `elem` msg then "\n" else ""
     reportSummary counts = putStr $ padLines 4 $ case statusFromCounts counts of
       TestPassed -> "Done :)"
-      TestPartial percent -> "Has " <> show (floor $ percent * 100) <> "% of failures :|"
+      TestPartial percent -> "Test has " <> show (floor $ percent * 100) <> "% of failures :|"
       TestFailed -> "Failed :("
 
 padLines :: Int -> String -> String
