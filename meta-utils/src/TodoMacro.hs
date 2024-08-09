@@ -8,6 +8,7 @@ module TodoMacro
 
 import Control.Exception (throw)
 import Control.Monad
+import Data.Functor
 import Language.Haskell.TH
 import TodoException (TodoException (..))
 
@@ -60,6 +61,7 @@ todoImpl dataName className = do
   tyArgs <- reify dataName <&> \case
     TyConI (DataD _ _ tyArgs _ _ _) -> tyArgs
     TyConI (NewtypeD _ _ tyArgs _ _ _) -> tyArgs
+    _ -> error "data or newtype expected"
   target <- mkInstanceTarget className dataName (nKindArgs kind) (length tyArgs)
   let decls = map (sigToDec (show dataName) (show className)) $ filter isSigD sigs
   pure [InstanceD Nothing [] target decls]
