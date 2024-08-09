@@ -48,7 +48,7 @@ nameTests iBlock = map wrapToTestLabel . zipWith mkNamedTest [1 :: Int ..]
 
 statusFromCounts :: Counts -> TestStatus
 statusFromCounts Counts {..}
-  | (errors == 0) && (failures == 0) = TestPassed
+  | errors == 0 && failures == 0 = TestPassed
   | errors + failures < tried = TestPartial $
       1 - fromIntegral (errors + failures) / fromIntegral tried
   | otherwise = TestFailed
@@ -88,8 +88,8 @@ runTests tests = collectReport <$> forM tests \(name, test) -> do
       prefix <> showPath path <> " " <> msg <> if '\n' `elem` msg then "\n" else ""
     reportSummary counts = putStr $ padLines 4 $ case statusFromCounts counts of
       TestPassed -> "Done :)"
-      TestPartial percent -> "In progress, " <> show (floor $ percent * 100) <> "% tests remains :|"
-      TestFailed -> "Failed :("
+      TestPartial percent -> "In progress, " <> show (floor $ percent * 100) <> "% tests remain :|"
+      TestFailed -> "Nothing here :("
 
 padLines :: Int -> String -> String
 padLines nSpaces = unlines . map (replicate nSpaces ' ' ++) . lines
