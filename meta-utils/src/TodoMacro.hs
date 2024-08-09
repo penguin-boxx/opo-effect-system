@@ -57,11 +57,13 @@ mkInstanceTarget className dataName nExpectedTyArgs nDataTyArgs = do
 
 todoImpl :: Name -> Name -> Q [Dec]
 todoImpl dataName className = do
-  ClassI (ClassD _ _ [KindedTV _ _ kind] _ sigs) _ <- reify className
+  (kind, sigs) <- reify className <&> \case
+    ClassI (ClassD _ _ [KindedTV _ _ kind] _ sigs) _ -> (kind, sigs)
+    x -> error $ "expected class, got " <> show x
   tyArgs <- reify dataName <&> \case
     TyConI (DataD _ _ tyArgs _ _ _) -> tyArgs
     TyConI (NewtypeD _ _ tyArgs _ _ _) -> tyArgs
-    _ -> error "data or newtype expected"
+    x -> error $ "data or newtype expected, got " <> show x
   target <- mkInstanceTarget className dataName (nKindArgs kind) (length tyArgs)
   let decls = map (sigToDec (show dataName) (show className)) $ filter isSigD sigs
   pure [InstanceD Nothing [] target decls]
