@@ -1,4 +1,4 @@
-module Test.Properties (propertyToTest, lawsToTest) where
+module Test.Properties (propertyToTest, propertyToTestIO, lawsToTest) where
 
 import Control.Exception
 import Data.List.NonEmpty qualified as NE
