@@ -19,7 +19,7 @@ propertyToTestIO description property = TestCase $
         Just _ -> throwIO exception
         Nothing -> assertFailure $ "exception occured: " <> show exception
     QC.Failure { theException = Nothing, .. } ->
-      assertFailure $ "expected " <> description <> ", but\n" <> output
+      assertFailure $ "tested " <> description <> ", but\n" <> output
     _ -> pure ()
   where
     args = QC.stdArgs { QC.chatty = False, QC.maxSuccess = 150 }
