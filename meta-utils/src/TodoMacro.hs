@@ -58,11 +58,12 @@ todoImpl :: Name -> Name -> Q [Dec]
 todoImpl className dataName = do
   (kind, sigs) <- reify className >>= \case
     ClassI (ClassD _ _ [KindedTV _ _ kind] _ sigs) _ -> pure (kind, sigs)
-    x -> fail $ "expected class, got " <> show x
-  tyArgs <- reify dataName >>= \case
-    TyConI (DataD _ _ tyArgs _ _ _) -> pure tyArgs
-    TyConI (NewtypeD _ _ tyArgs _ _ _) -> pure tyArgs
-    x -> fail $ "data or newtype expected, got " <> show x
-  target <- mkInstanceTarget className dataName (nKindArgs kind) (length tyArgs)
+    x -> fail $ "expected type class, got " <> show x
+  nTyArgs <- reify dataName >>= \case
+    TyConI (DataD _ _ tyArgs _ _ _) -> pure $ length tyArgs
+    TyConI (NewtypeD _ _ tyArgs _ _ _) -> pure $ length tyArgs
+    TyConI (TySynD (nameBase -> "->") [] _) -> pure 2
+    x -> fail $ "unsupported data, got " <> show x
+  target <- mkInstanceTarget className dataName (nKindArgs kind) nTyArgs
   let decls = map (sigToDec (show dataName) (show className)) $ filter isSigD sigs
   pure [InstanceD Nothing [] target decls]
