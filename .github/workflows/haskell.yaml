@@ -22,6 +22,8 @@ jobs:
     if: ${{ !contains(github.event.pusher.name, '[bot]') }}
     timeout-minutes: 5
     continue-on-error: true
+    env:
+      HASKELL_TEST_REPORT: report.txt 
     steps:
       - uses: actions/checkout@v3
 
@@ -154,3 +156,8 @@ jobs:
       - name: 'Run 3.10 test'
         if: ${{ always() }}
         run: bash ${GITHUB_WORKSPACE}/.github/workflows/run.sh '3.10'
+      - name: 'Upload results'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Report
+          path: ${GITHUB_WORKSPACE}/report.txt
