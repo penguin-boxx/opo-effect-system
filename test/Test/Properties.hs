@@ -17,7 +17,7 @@ propertyToTestIO description property = TestCase $
     QC.Failure { theException = Just exception } ->
       case fromException @TodoException exception of
         Just _ -> throwIO exception
-        Nothing -> assertFailure $ "exception occured: " <> show exception
+        Nothing -> assertFailure $ "tested " <> description <> ", but\n" <> show exception
     QC.Failure { theException = Nothing, .. } ->
       assertFailure $ "tested " <> description <> ", but\n" <> output
     _ -> pure ()
