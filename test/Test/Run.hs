@@ -31,7 +31,7 @@ testMain tests = do
   (counts, report) <- runTests $ filterTests testFilters tests
   lookupEnv "HASKELL_TEST_REPORT" >>= maybe (pure ()) \filePath ->
     writeFile filePath $ showMachine report
-  putStrLn $ "\n" <> showCounts counts <> "\n"
+  putStrLn $ "\n" <> showCounts counts
   if statusFromCounts counts == TestPassed then exitSuccess else exitFailure
   where
     getTestFilters :: IO [String]
