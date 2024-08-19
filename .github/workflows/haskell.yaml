@@ -153,9 +153,10 @@ jobs:
 
       - name: 'Run 3.10 test'
         if: ${{ always() }}
-        run: bash ${GITHUB_WORKSPACE}/.github/workflows/run.sh '3.10'
+        run: HASKELL_TEST_REPORT=report.txt bash ${GITHUB_WORKSPACE}/.github/workflows/run.sh '3.10'
+
       - name: 'Upload results'
         uses: actions/upload-artifact@v4
         with:
           name: Report
-          path: ${GITHUB_WORKSPACE}/report.txt
+          path: report.txt
