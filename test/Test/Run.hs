@@ -2,7 +2,7 @@ module Test.Run (NamedTests, testMain, nameTests) where
 
 import Control.Monad (forM)
 import Data.List qualified as List
-import System.Environment
+import System.Environment (lookupEnv, getArgs)
 import System.Exit (exitFailure, exitSuccess)
 import Test.HUnit (Test (..), Counts (..))
 import Test.HUnit.Base qualified as HU
