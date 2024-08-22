@@ -1,11 +1,27 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 # For course staff only. Updates homework in template repo.
 # Expects:
 #  * remote origin - homework template
 #  * remote template - internal template
 #  * remote public - homework template in the classroom organization
-# Example: sh update.sh "Commit message"
+# Example: ./update.sh "Commit message"
+# Example: ./update.sh --all
 set -e
+
+if [ "$1" = "--all" ]
+then
+  SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+  echo "Script found itself in $SCRIPT_DIR"
+  for dir in "../$SCRIPT_DIR"/*/
+  do
+  	dir=${dir%*/} # remove the trailing "/"
+  	echo ">>> Updating $dir..."
+  	cd "$dir"
+  	bash update.sh
+  	echo ">>> Done for $dir!"
+  done
+  exit 0
+fi
 
 git push origin main:main # To have main as a default branch on github (first push)
 
