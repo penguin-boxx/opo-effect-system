@@ -42,8 +42,8 @@ testMacro = TestList
   , TestCase $ assertThrows $ fmap (+1) value
   , TestCase $ assertThrows $ value >>= \x -> value >>= \y -> pure (x + y)
   , TestCase $ assertThrows (lift (Identity 42) :: Data' Identity Int)
-  , TestCase $ assertThrows $ (throwError "aaaa" :: Data'' String Int)
-  , TestCase $ assertThrows $ (catchError undefined undefined :: ExceptT String Identity Int)
+  , TestCase $ assertThrows (throwError "aaaa" :: Data'' String Int)
+  , TestCase $ assertThrows (catchError undefined undefined :: ExceptT String Identity Int)
   ]
   where
     value = Ok 42 :: Data Int
