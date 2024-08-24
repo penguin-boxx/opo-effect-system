@@ -47,6 +47,7 @@ library
       EmptyCase
       FlexibleContexts
       FlexibleInstances
+      FunctionalDependencies
       GADTs
       GeneralizedNewtypeDeriving
       ImportQualifiedPost
@@ -54,6 +55,7 @@ library
       KindSignatures
       LambdaCase
       MultiParamTypeClasses
+      NamedFieldPuns
       PatternSynonyms
       PolyKinds
       QuantifiedConstraints
@@ -106,6 +108,7 @@ library meta-utils
       EmptyCase
       FlexibleContexts
       FlexibleInstances
+      FunctionalDependencies
       GADTs
       GeneralizedNewtypeDeriving
       ImportQualifiedPost
@@ -113,6 +116,7 @@ library meta-utils
       KindSignatures
       LambdaCase
       MultiParamTypeClasses
+      NamedFieldPuns
       PatternSynonyms
       PolyKinds
       QuantifiedConstraints
@@ -160,6 +164,7 @@ executable homework-exe
       EmptyCase
       FlexibleContexts
       FlexibleInstances
+      FunctionalDependencies
       GADTs
       GeneralizedNewtypeDeriving
       ImportQualifiedPost
@@ -167,6 +172,7 @@ executable homework-exe
       KindSignatures
       LambdaCase
       MultiParamTypeClasses
+      NamedFieldPuns
       PatternSynonyms
       PolyKinds
       QuantifiedConstraints
@@ -223,6 +229,7 @@ test-suite homework-test
       EmptyCase
       FlexibleContexts
       FlexibleInstances
+      FunctionalDependencies
       GADTs
       GeneralizedNewtypeDeriving
       ImportQualifiedPost
@@ -230,6 +237,7 @@ test-suite homework-test
       KindSignatures
       LambdaCase
       MultiParamTypeClasses
+      NamedFieldPuns
       PatternSynonyms
       PolyKinds
       QuantifiedConstraints
@@ -284,6 +292,7 @@ test-suite meta-utils-test
       EmptyCase
       FlexibleContexts
       FlexibleInstances
+      FunctionalDependencies
       GADTs
       GeneralizedNewtypeDeriving
       ImportQualifiedPost
@@ -291,6 +300,7 @@ test-suite meta-utils-test
       KindSignatures
       LambdaCase
       MultiParamTypeClasses
+      NamedFieldPuns
       PatternSynonyms
       PolyKinds
       QuantifiedConstraints

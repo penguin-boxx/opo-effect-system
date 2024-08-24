@@ -16,13 +16,13 @@ type FunctionName = String
 type ClassName = String
 
 data EntryInfo = EntryInfo
-  { dataName :: DataName
-  , className :: ClassName
-  , functionName :: FunctionName
+  { entryDataName :: DataName
+  , entryClassName :: ClassName
+  , entryFunctionName :: FunctionName
   }
 
 mkTodoString :: EntryInfo -> String
-mkTodoString EntryInfo {..} = className <> "." <> functionName <> " for " <> dataName
+mkTodoString EntryInfo {..} = entryClassName <> "." <> entryFunctionName <> " for " <> entryDataName
 
 mkVarE :: String -> Exp
 mkVarE = VarE . mkName
@@ -47,23 +47,33 @@ sigToDec :: DataName -> ClassName -> Dec -> Dec
 sigToDec dn cn (SigD nm _) = FunD nm [Clause [] (todoB (EntryInfo dn cn (nameBase nm))) []]
 sigToDec _ _ _ = error "only SigD expected!"
 
-mkInstanceTarget :: Name -> Name -> Int -> Int -> Q Type
-mkInstanceTarget className dataName nExpectedTyArgs nDataTyArgs = do
-  let nSpecializeVars = nDataTyArgs - nExpectedTyArgs + 1
+data ClassInfo = ClassInfo { className :: Name, classNParams :: Int, classNTargetTyArgs :: Int }
+data DataInfo = DataInfo { dataName :: Name, dataNTyArgs :: Int }
+
+mkInstanceTarget :: ClassInfo -> DataInfo -> Q Type
+mkInstanceTarget ClassInfo{..} DataInfo{..} = do
+  let nSpecializeVars = dataNTyArgs - classNTargetTyArgs + 1
   vars <- replicateM nSpecializeVars (VarT <$> newName "a")
   let specializedData = foldl AppT (ConT dataName) vars
-  pure $ AppT (ConT className) specializedData
+  -- Handle first vars for multiparametric type classes a la MonadError.
+  -- Tries to instantiate params with first specialized variables.
+  -- E.g. instance MonadError e (ExceptT e m).
+  let otherVars = take (classNParams - 1) vars
+  pure $ foldl AppT (ConT className) (otherVars ++ [specializedData])
 
 todoImpl :: Name -> Name -> Q [Dec]
 todoImpl className dataName = do
-  (kind, sigs) <- reify className >>= \case
-    ClassI (ClassD _ _ [KindedTV _ _ kind] _ sigs) _ -> pure (kind, sigs)
+  (classInfo, sigs) <- reify className >>= \case
+    ClassI (ClassD _ _ tyParams _ sigs) _ | KindedTV _ _ kind <- last tyParams -> do
+      let classNParams = length tyParams
+      let classNTargetTyArgs = nKindArgs kind
+      pure (ClassInfo {..}, sigs)
     x -> fail $ "expected type class, got " <> show x
-  nTyArgs <- reify dataName >>= \case
+  dataNTyArgs <- reify dataName >>= \case
     TyConI (DataD _ _ tyArgs _ _ _) -> pure $ length tyArgs
     TyConI (NewtypeD _ _ tyArgs _ _ _) -> pure $ length tyArgs
     TyConI (TySynD (nameBase -> "->") [] _) -> pure 2
     x -> fail $ "unsupported data, got " <> show x
-  target <- mkInstanceTarget className dataName (nKindArgs kind) nTyArgs
+  target <- mkInstanceTarget classInfo DataInfo {..}
   let decls = map (sigToDec (show dataName) (show className)) $ filter isSigD sigs
   pure [InstanceD Nothing [] target decls]

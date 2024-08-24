@@ -6,7 +6,15 @@ import Test.HUnit qualified as HU
 
 data Data a = Ok !a | NotOk deriving Show
 data Data' f a = Ok' !(f a) | NotOk' deriving Show
-class MonadTrans t where lift :: m a -> t m a
+data Data'' e a = Ok'' !a | NotOk'' !e deriving Show
+data ExceptT e (m :: Type -> Type) a
+
+class MonadTrans t where
+  lift :: m a -> t m a
+
+class MonadError e m | m -> e where
+  throwError :: e -> m a
+  catchError :: m a -> (e -> m a) -> m a
 
 todoImpl ''Eq ''Data
 todoImpl ''Functor ''Data
@@ -15,6 +23,8 @@ todoImpl ''Monad ''Data
 todoImpl ''Foldable ''Data
 todoImpl ''Traversable ''Data
 todoImpl ''MonadTrans ''Data'
+todoImpl ''MonadError ''Data''
+todoImpl ''MonadError ''ExceptT
 
 main :: IO ()
 main = HU.runTestTTAndExit $ TestList
@@ -32,6 +42,8 @@ testMacro = TestList
   , TestCase $ assertThrows $ fmap (+1) value
   , TestCase $ assertThrows $ value >>= \x -> value >>= \y -> pure (x + y)
   , TestCase $ assertThrows (lift (Identity 42) :: Data' Identity Int)
+  , TestCase $ assertThrows $ (throwError "aaaa" :: Data'' String Int)
+  , TestCase $ assertThrows $ (catchError undefined undefined :: ExceptT String Identity Int)
   ]
   where
     value = Ok 42 :: Data Int

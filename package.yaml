@@ -39,6 +39,7 @@ default-extensions:
   - EmptyCase
   - FlexibleContexts
   - FlexibleInstances
+  - FunctionalDependencies
   - GADTs
   - GeneralizedNewtypeDeriving
   - ImportQualifiedPost
@@ -46,6 +47,7 @@ default-extensions:
   - KindSignatures
   - LambdaCase
   - MultiParamTypeClasses
+  - NamedFieldPuns
   - PatternSynonyms
   - PolyKinds
   - QuantifiedConstraints
