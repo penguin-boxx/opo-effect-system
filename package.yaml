@@ -69,6 +69,7 @@ ghc-options:
   - -Wno-unrecognised-pragmas # to use hlint pragmas in source files
   - -Wno-unused-imports  # imported by teacher should not cause warnings
   - -Wno-redundant-constraints # teacher provides some constraints
+  - -Wno-noncanonical-monoid-instances # can be emitted by macro-generated code
   - -Wno-noncanonical-monad-instances # can be emitted by macro-generated code
   - -Wno-name-shadowing # just very inconvenient with helper functions
 
