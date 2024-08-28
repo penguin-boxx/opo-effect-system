@@ -2,6 +2,10 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,windows,linux,haskell,visualstudiocode,intellij
 
 ### Haskell ###
+
+# Hard to merge homeworks after changing configuration in the template.
+homework.cabal
+
 dist
 dist-*
 cabal-dev
