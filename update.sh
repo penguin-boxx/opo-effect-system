@@ -12,9 +12,8 @@ if [ "$1" = "--all" ]
 then
   SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
   echo "Script found itself in $SCRIPT_DIR"
-  for dir in "$SCRIPT_DIR"/*/
+  for dir in "$(dirname "$SCRIPT_DIR")"/*/
   do
-    dir="$(dirname "$dir")" # get parent directory
   	dir=${dir%*/} # remove the trailing "/"
   	echo ">>> Updating $dir..."
   	cd "$dir"
