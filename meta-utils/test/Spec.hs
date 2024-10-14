@@ -53,4 +53,4 @@ testMacro = TestList
       Left e -> case fromException @TodoException e of
         Just _ -> pure ()
         Nothing -> throw e
-      Right _ -> assertFailure "Expected todo exception, got result :|"
+      Right _ -> assertFailure "Expected todo exception, got result :("
