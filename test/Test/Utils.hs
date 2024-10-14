@@ -1,7 +1,7 @@
 module Test.Utils where
 
 import Control.Exception
-import Test.HUnit (Test (..), assertFailure)
+import Test.HUnit (assertFailure)
 
 domain :: (Enum a, Bounded a) => [a]
 domain = [minBound .. maxBound]
