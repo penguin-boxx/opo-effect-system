@@ -1,4 +1,4 @@
-module Test.Properties (propertyToTest, propertyToTestIO, lawsToTest) where
+module Test.Properties (propertyToTest, propertyToTestIO, lawsToTest, filterLaws) where
 
 import Control.Exception
 import Data.List.NonEmpty qualified as NE
@@ -28,6 +28,9 @@ lawsToTest :: QC.Laws -> Test
 lawsToTest QC.Laws {..} = TestList $ uncurry mkTest <$> lawsProperties
   where
     mkTest name = propertyToTest (lawsTypeclass <> "." <> name <> " satisfied")
+
+filterLaws :: (String -> Bool) -> QC.Laws -> QC.Laws
+filterLaws p QC.Laws {..} = QC.Laws { lawsProperties = filter (p . fst) lawsProperties, .. }
 
 deriving newtype instance Arbitrary a => Arbitrary (Id a)
 deriving newtype instance Arbitrary (f a) => Arbitrary (Done f a)
