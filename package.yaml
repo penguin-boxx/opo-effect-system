@@ -56,6 +56,7 @@ default-extensions:
   - RecordWildCards
   - ScopedTypeVariables
   - StandaloneDeriving
+  - StandaloneKindSignatures
   - TemplateHaskell
   - TupleSections
   - TypeApplications
@@ -79,10 +80,10 @@ library:
     - meta-utils
 
 internal-libraries:
-  meta-utils:      
+  meta-utils:
     source-dirs: meta-utils/src
     dependencies:
-      - template-haskell    
+      - template-haskell
 
 executables:
   homework-exe:
