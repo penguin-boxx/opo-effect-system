@@ -60,6 +60,7 @@ default-extensions:
   - TemplateHaskell
   - TupleSections
   - TypeApplications
+  - TypeFamilyDependencies
   - TypeFamilies
   - TypeOperators
   - TypeSynonymInstances
