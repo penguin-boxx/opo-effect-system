@@ -1,4 +1,41 @@
 module Main where
 
+import Syntax
+import Semantics
+
 main :: IO ()
-main = putStrLn "Hello world"
+main = do
+  print $ eval' example1
+  print $ eval' example2
+  print $ eval' example3
+  print $ eval' example4
+  print $ eval' example5
+
+example1 :: Expr
+example1 =
+  ("x" =. c 1 +. c 2) $
+  ("y" =. v "x" +. c 3) $
+  v "y"
+
+example2 :: Expr
+example2 = Lam "x" (Lam "y" $ v "x") :@ c 1 :@ c 2
+
+example3 :: Expr
+example3 =
+  withHandler "throw" (v "p") $
+    ("x" =. c 1) $
+    ("y" =. c 41) $
+    Do "throw" (v "x" +. v "y")
+
+example4 :: Expr
+example4 =
+  withHandler "ask'" (v "k" :@ c 41) $
+  withHandler "ask" (v "k" :@ c 1) $
+    Do "ask" (c 0) +. Do "ask'" (c 0)
+
+example5 :: Expr
+example5 =
+  ("f" =. Lam "_" (Do "ask" (c 0))) $
+  withHandler "ask'" (v "k" :@ c 41) $
+  withHandler "ask" (v "k" :@ Do "ask'" (c 0)) $
+    Do "ask" (c 0) +. Do "ask'" (c 0) +. v "f" :@ c 0
