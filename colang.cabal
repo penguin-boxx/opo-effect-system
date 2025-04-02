@@ -1,0 +1,207 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.35.1.
+--
+-- see: https://github.com/sol/hpack
+
+name:           colang
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/penguin-boxx/colang#readme>
+homepage:       https://github.com/penguin-boxx/colang#readme
+bug-reports:    https://github.com/penguin-boxx/colang/issues
+author:         Andrey Stoyan
+maintainer:     andrey.stoyan.csam@gmail.com
+copyright:      2025 Andrey Stoyan
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/penguin-boxx/colang
+
+library
+  exposed-modules:
+      Semantics
+      Syntax
+  other-modules:
+      Paths_colang
+  autogen-modules:
+      Paths_colang
+  hs-source-dirs:
+      src
+  default-extensions:
+      AllowAmbiguousTypes
+      BlockArguments
+      ConstraintKinds
+      DataKinds
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveTraversable
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      InstanceSigs
+      KindSignatures
+      LambdaCase
+      MultiParamTypeClasses
+      NamedFieldPuns
+      PatternSynonyms
+      PolyKinds
+      QuantifiedConstraints
+      QuasiQuotes
+      RankNTypes
+      RecordWildCards
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilyDependencies
+      TypeFamilies
+      TypeOperators
+      TypeSynonymInstances
+      ViewPatterns
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing
+  build-depends:
+      GenericPretty
+    , base >=4.7 && <5
+    , containers
+    , mtl
+    , pretty
+    , random
+  default-language: Haskell2010
+
+executable colang-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_colang
+  autogen-modules:
+      Paths_colang
+  hs-source-dirs:
+      app
+  default-extensions:
+      AllowAmbiguousTypes
+      BlockArguments
+      ConstraintKinds
+      DataKinds
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveTraversable
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      InstanceSigs
+      KindSignatures
+      LambdaCase
+      MultiParamTypeClasses
+      NamedFieldPuns
+      PatternSynonyms
+      PolyKinds
+      QuantifiedConstraints
+      QuasiQuotes
+      RankNTypes
+      RecordWildCards
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilyDependencies
+      TypeFamilies
+      TypeOperators
+      TypeSynonymInstances
+      ViewPatterns
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      GenericPretty
+    , base >=4.7 && <5
+    , colang
+    , containers
+    , mtl
+    , pretty
+    , random
+  default-language: Haskell2010
+
+test-suite colang-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_colang
+  autogen-modules:
+      Paths_colang
+  hs-source-dirs:
+      test
+  default-extensions:
+      AllowAmbiguousTypes
+      BlockArguments
+      ConstraintKinds
+      DataKinds
+      DeriveFoldable
+      DeriveFunctor
+      DeriveGeneric
+      DeriveTraversable
+      DerivingStrategies
+      DerivingVia
+      EmptyCase
+      FlexibleContexts
+      FlexibleInstances
+      FunctionalDependencies
+      GADTs
+      GeneralizedNewtypeDeriving
+      ImportQualifiedPost
+      InstanceSigs
+      KindSignatures
+      LambdaCase
+      MultiParamTypeClasses
+      NamedFieldPuns
+      PatternSynonyms
+      PolyKinds
+      QuantifiedConstraints
+      QuasiQuotes
+      RankNTypes
+      RecordWildCards
+      ScopedTypeVariables
+      StandaloneDeriving
+      StandaloneKindSignatures
+      TemplateHaskell
+      TupleSections
+      TypeApplications
+      TypeFamilyDependencies
+      TypeFamilies
+      TypeOperators
+      TypeSynonymInstances
+      ViewPatterns
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-redundant-constraints -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -threaded -rtsopts -with-rtsopts=-N -Wno-orphans -Wno-type-defaults
+  build-depends:
+      GenericPretty
+    , HUnit
+    , QuickCheck
+    , base >=4.7 && <5
+    , colang
+    , containers
+    , generic-arbitrary
+    , generic-random
+    , mtl
+    , pretty
+    , quickcheck-classes-base
+    , random
+  default-language: Haskell2010
