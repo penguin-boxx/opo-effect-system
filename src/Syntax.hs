@@ -1,5 +1,7 @@
 module Syntax where
 
+import Text.PrettyPrint.GenericPretty
+
 type VarName = String
 type OpName = String
 
@@ -10,15 +12,35 @@ data Expr
   | Expr :@ Expr
   | Lam VarName Expr
   | Do OpName Expr
-  | Handle Expr OpName VarName VarName Expr
-  deriving Show
+  | Handle 
+    { pure :: PureHandler
+    , ops :: [OpHandler]
+    , scope :: Expr
+    }
 
-infix 1 =.
+data PureHandler = PureHandler
+  { pureName :: VarName
+  , pureBody :: Expr
+  }
+
+data OpHandler = OpHandler
+  { opName :: OpName
+  , paramName :: VarName
+  , kName :: VarName
+  , opBody :: Expr
+  }
+
+infixr 0 =.
+infixr 0 -->
+infixr 0 $$
 infixl 6 +.
 infixl 9 :@
 
 (=.) :: VarName -> Expr -> Expr -> Expr
 (name =. expr) body = Lam name body :@ expr
+
+($$) :: Expr -> Expr -> Expr
+($$) stmt = "_" =. stmt
 
 c :: Int -> Expr
 c = Const
@@ -29,5 +51,27 @@ c = Const
 v :: VarName -> Expr
 v = Var
 
-withHandler :: OpName -> Expr -> Expr -> Expr
-withHandler opName body scope = Handle scope opName "" "" body
+class LongArrow a b c where
+  (-->) :: a -> b -> c
+
+instance LongArrow (OpName, VarName, VarName) Expr OpHandler where
+  (opName, paramName, kName) --> opBody = OpHandler{..}
+
+instance LongArrow VarName Expr (VarName, Expr) where
+  (-->) = (,)
+
+withHandler :: (VarName, Expr) -> [OpHandler] -> Expr -> Expr
+withHandler (pureName, pureBody) ops scope = Handle{ pure = PureHandler{..}, .. }
+
+deriving stock instance Generic Expr
+instance Out Expr
+instance Show Expr where
+  show = pretty
+deriving stock instance Generic PureHandler
+instance Out PureHandler
+instance Show PureHandler where
+  show = pretty
+deriving stock instance Generic OpHandler
+instance Out OpHandler
+instance Show OpHandler where
+  show = pretty

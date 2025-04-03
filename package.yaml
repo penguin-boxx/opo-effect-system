@@ -25,6 +25,7 @@ dependencies:
   - pretty
   - random
   - mtl
+  - optics
 
 default-extensions:
   - AllowAmbiguousTypes
@@ -37,6 +38,8 @@ default-extensions:
   - DeriveTraversable
   - DerivingStrategies
   - DerivingVia
+  - DisambiguateRecordFields
+  - DuplicateRecordFields
   - EmptyCase
   - FlexibleContexts
   - FlexibleInstances
@@ -49,6 +52,8 @@ default-extensions:
   - LambdaCase
   - MultiParamTypeClasses
   - NamedFieldPuns
+  - NoFieldSelectors
+  - OverloadedLabels
   - PatternSynonyms
   - PolyKinds
   - QuantifiedConstraints

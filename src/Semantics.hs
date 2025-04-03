@@ -1,25 +1,37 @@
 module Semantics where
 
 import Control.Monad.Cont
+import Data.Foldable
 import Data.Function (fix, on)
 import Data.Map (Map, (!?))
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
+import Optics
 import Syntax
+import GHC.Generics
 import GHC.Stack
+import Text.PrettyPrint qualified as PP
+import Text.PrettyPrint.GenericPretty
 
 type Context = Map VarName Value
 
-data Value = Number Int | Closure Context VarName Expr | Continuation (Value -> Value)
-  deriving Show
+newtype Continuation = WrapContinuation (Value -> Value)
 
-instance Show (a -> b) where
-  show _ = "<fun>"
+instance Semigroup Continuation where
+  WrapContinuation k <> WrapContinuation k' = WrapContinuation (k . k')
 
-data Handler = Handler OpName Expr (Value -> Value)
+instance Monoid Continuation where
+  mempty = WrapContinuation id
 
-eval :: HasCallStack => [Handler] -> Context -> Expr -> Cont Value Value
-eval hStack ctx = \case
+data Value = Number Int | Closure Context VarName Expr | Continuation Continuation
+
+data InstalledHandler = InstalledHandler
+  { ops :: [OpHandler]
+  , kPrev :: Continuation
+  }
+
+eval :: HasCallStack => [InstalledHandler] -> Context -> Expr -> Cont Value Value
+eval hStack ctx expr = case expr of
   Const value -> 
     pure $ Number value
   Plus lhs rhs -> do
@@ -35,22 +47,30 @@ eval hStack ctx = \case
     f' <- rec f
     arg' <- rec arg
     case f' of
-      Continuation f -> pure $ f arg'
+      Continuation (WrapContinuation f) -> pure $ f arg'
       Closure closureCtx name body ->
         let ctx' = Map.insert name arg' (ctx <> closureCtx) in
         eval hStack ctx' body
-      other -> error $ "Expected function, got " <> show other
-  Do opName arg -> do
+      other -> error $ concat
+        [ "Expected function, got ", show other
+        , " (arg=", show arg'
+        , ", expr=", show expr
+        , ", ctx=", show ctx, ")"
+        ]
+  Do targetOpName arg -> do
     arg' <- rec arg
-    cont \kUntilFirstHandler ->
-      let (Handler _ body kHandler, hStack', kSkipedHandlers) = hStack `lookupHandler` opName in
-      let k = Continuation $ kSkipedHandlers . kUntilFirstHandler in
-      let ctx' = Map.insert "p" arg' $ Map.insert "k" k ctx in
-      runCont (eval hStack' ctx' body) kHandler
-  Handle scope opName pName kName body ->
+    cont \(WrapContinuation -> kUntilNearestHandler) ->
+      let LookupHandlerResult{..} = hStack `lookupHandler` targetOpName in
+      let k = Continuation $ kUntilFoundHandler <> kUntilNearestHandler in
+      let OpHandler{..} = foundHandler in
+      let ctx' = Map.insert paramName arg' $ Map.insert kName k ctx in
+      runCont (eval restHStack ctx' opBody) (view coerced kFoundHandler)
+  Handle{..} ->
     cont \k ->
-      let h = Handler opName body k in
-      runCont (eval (h : hStack) ctx scope) id
+      let h = InstalledHandler{ kPrev = WrapContinuation k, .. } in
+      let PureHandler{..} = pure in
+      let scopeWithPure = (pureName =. scope) pureBody in
+      runCont (eval (h : hStack) ctx scopeWithPure) id
   where
     rec = eval hStack ctx
 
@@ -59,11 +79,39 @@ eval hStack ctx = \case
       Number value -> value
       other -> error $ "Expected number, got " <> show other 
 
-    lookupHandler :: HasCallStack => [Handler] -> OpName -> (Handler, [Handler], Value -> Value)
-    lookupHandler hs opName = case hs of
-      [] -> error $ "No handler for " <> opName <> " found"
-      h@(Handler opName' _ _) : hStack | opName == opName' -> (h, hStack, id)
-      Handler _ _ k : hStack -> (. k) <$> hStack `lookupHandler` opName
+data LookupHandlerResult = LookupHandlerResult
+  { foundHandler :: OpHandler
+  , kFoundHandler :: Continuation
+  , kUntilFoundHandler :: Continuation
+  , restHStack :: [InstalledHandler]
+  }
+  deriving stock (Show, Generic)
+
+lookupHandler :: HasCallStack => [InstalledHandler] -> OpName -> LookupHandlerResult
+lookupHandler hStack targetOpName = case hStack of
+  [] -> error $ "No handler for " <> targetOpName <> " found"
+  InstalledHandler{..} : restHStack 
+    | Just foundHandler <- find (\OpHandler{..} -> opName == targetOpName) ops ->
+      LookupHandlerResult{ kFoundHandler = kPrev, kUntilFoundHandler = mempty, .. }
+  InstalledHandler{..} : restHStack ->
+    over #kUntilFoundHandler (<> kPrev) (restHStack `lookupHandler` targetOpName)
 
 eval' :: Expr -> Value
 eval' expr = runCont (eval [] Map.empty expr) id
+
+instance (Out k, Out v) => Out (Map k v) where
+  doc = doc . Map.toList
+  docPrec = const doc
+instance Out Continuation where
+  doc = const $ PP.text "<cont>"
+  docPrec = const doc
+instance Show Continuation where
+  show = pretty
+deriving stock instance Generic Value
+instance Out Value
+instance Show Value where
+  show = pretty
+deriving stock instance Generic InstalledHandler
+instance Out InstalledHandler
+instance Show InstalledHandler where
+  show = pretty
