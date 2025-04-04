@@ -1,8 +1,7 @@
-module Semantics where
+module Semantics.Fun where
 
 import Control.Monad.Cont
 import Data.Foldable
-import Data.Function (fix, on)
 import Data.Map (Map, (!?))
 import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
@@ -12,6 +11,7 @@ import GHC.Generics
 import GHC.Stack
 import Text.PrettyPrint qualified as PP
 import Text.PrettyPrint.GenericPretty
+import Debug.Trace
 
 type Context = Map VarName Value
 
@@ -26,13 +26,14 @@ instance Monoid Continuation where
 data Value = Number Int | Closure Context VarName Expr | Continuation Continuation
 
 data InstalledHandler = InstalledHandler
-  { ops :: [OpHandler]
+  { handlerCtx :: Context
+  , ops :: [OpHandler]
   , kPrev :: Continuation
   }
 
 eval :: HasCallStack => [InstalledHandler] -> Context -> Expr -> Cont Value Value
 eval hStack ctx expr = case expr of
-  Const value -> 
+  Const value ->
     pure $ Number value
   Plus lhs rhs -> do
     lhs' <- rec lhs
@@ -44,8 +45,11 @@ eval hStack ctx expr = case expr of
   Lam name body ->
     pure $ Closure ctx name body
   f :@ arg -> do
+    traceM ":@"
     f' <- rec f
+    traceM $ "f = " <> show f'
     arg' <- rec arg
+    traceM $ "arg = " <> show arg' <> " " <> showAll hStack ctx expr
     case f' of
       Continuation (WrapContinuation f) -> pure $ f arg'
       Closure closureCtx name body ->
@@ -58,20 +62,30 @@ eval hStack ctx expr = case expr of
         , ", ctx=", show ctx, ")"
         ]
   Do targetOpName arg -> do
+    traceM "Do"
     arg' <- rec arg
     cont \(WrapContinuation -> kUntilNearestHandler) ->
       let LookupHandlerResult{..} = hStack `lookupHandler` targetOpName in
-      let k = Continuation $ kUntilFoundHandler <> kUntilNearestHandler in
+      let k = Continuation $ kSkippedHandlers <> kUntilNearestHandler in
       let OpHandler{..} = foundHandler in
-      let ctx' = Map.insert paramName arg' $ Map.insert kName k ctx in
-      runCont (eval restHStack ctx' opBody) (view coerced kFoundHandler)
-  Handle{..} ->
+      let ctx' = Map.insert paramName arg' $ Map.insert kName k handlerCtx in
+      runCont (eval restHStack ctx' opBody) id
+  Handle{..} -> do
+    traceM "Handle"
     cont \k ->
-      let h = InstalledHandler{ kPrev = WrapContinuation k, .. } in
-      let PureHandler{..} = pure in
-      let scopeWithPure = (pureName =. scope) pureBody in
-      runCont (eval (h : hStack) ctx scopeWithPure) id
+      let h = InstalledHandler{ handlerCtx = ctx, kPrev = WrapContinuation k, .. } in
+      let PureHandler{ .. } = pure in
+      wrap k $ runCont (eval (h : hStack) ctx scope) \result ->
+        let ctx' = Map.insert pureName result ctx in
+        runCont (eval hStack ctx' pureBody) id
   where
+    showAll hStack ctx expr = concat
+      [ "("
+      , "expr = "
+      , show expr
+      , ")"
+      ]
+
     rec = eval hStack ctx
 
     unwrapNumber :: HasCallStack => Value -> Int
@@ -79,10 +93,18 @@ eval hStack ctx expr = case expr of
       Number value -> value
       other -> error $ "Expected number, got " <> show other 
 
+wrap :: Show a => (a -> a) -> a -> a
+wrap f x = 
+  let res = f x in
+  trace ("wrapBegin " <> show x) $
+  trace ("wrapEnd " <> show res)
+  res
+
 data LookupHandlerResult = LookupHandlerResult
   { foundHandler :: OpHandler
+  , handlerCtx :: Context
   , kFoundHandler :: Continuation
-  , kUntilFoundHandler :: Continuation
+  , kSkippedHandlers :: Continuation
   , restHStack :: [InstalledHandler]
   }
   deriving stock (Show, Generic)
@@ -92,9 +114,9 @@ lookupHandler hStack targetOpName = case hStack of
   [] -> error $ "No handler for " <> targetOpName <> " found"
   InstalledHandler{..} : restHStack 
     | Just foundHandler <- find (\OpHandler{..} -> opName == targetOpName) ops ->
-      LookupHandlerResult{ kFoundHandler = kPrev, kUntilFoundHandler = mempty, .. }
+      LookupHandlerResult{ kFoundHandler = kPrev, kSkippedHandlers = mempty, .. }
   InstalledHandler{..} : restHStack ->
-    over #kUntilFoundHandler (<> kPrev) (restHStack `lookupHandler` targetOpName)
+    over #kSkippedHandlers (<> kPrev) (restHStack `lookupHandler` targetOpName)
 
 eval' :: Expr -> Value
 eval' expr = runCont (eval [] Map.empty expr) id

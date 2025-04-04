@@ -24,7 +24,7 @@ source-repository head
 
 library
   exposed-modules:
-      Semantics
+      Semantics.Fun
       Syntax
   other-modules:
       Paths_colang

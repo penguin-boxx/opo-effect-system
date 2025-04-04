@@ -1,15 +1,15 @@
 module Main where
 
 import Syntax
-import Semantics
+import Semantics.Fun
 
 main :: IO ()
 main = do
-  putStrLn "Hello!"
-  print $ eval' example1
-  print $ eval' example2
-  print $ eval' example3
-  print $ eval' example4
+  -- putStrLn "Hello!"
+  -- print $ eval' example1
+  -- print $ eval' example2
+  -- print $ eval' example3
+  -- print $ eval' example4
   print $ eval' example5
   print $ eval' $ example5 :@ c 1
 
@@ -43,7 +43,7 @@ example4 =
 
 withState :: Expr -> Expr
 withState = withHandler
-  ("x" --> Lam "s" $ v "x")
+  ("x" --> Lam "s" $ v "x" +. c 10)
   [ ("get", "_", "k") --> Lam "s" $ v "k" :@ v "s" :@ v "s"
   , ("put", "s'", "k") --> Lam "s" $ v "k" :@ v "s" :@ v "s'"
   ]
@@ -51,8 +51,8 @@ withState = withHandler
 example5 :: Expr
 example5 =
   withState $
-  Do "get" (c 0) +. Do "get" (c 0)
-  -- Do "put" (c 1) +. Do "get" (c 0)
+  -- c 42
+  Do "put" (c 1) $$ Do "get" (c 0)
 
 -- example3 :: Expr
 -- example3 =
