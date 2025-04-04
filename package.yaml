@@ -29,6 +29,7 @@ dependencies:
 
 default-extensions:
   - AllowAmbiguousTypes
+  - BangPatterns
   - BlockArguments
   - ConstraintKinds
   - DataKinds

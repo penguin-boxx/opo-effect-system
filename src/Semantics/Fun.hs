@@ -45,16 +45,12 @@ eval hStack ctx expr = case expr of
   Lam name body ->
     pure $ Closure ctx name body
   f :@ arg -> do
-    traceM ":@"
     f' <- rec f
-    traceM $ "f = " <> show f'
     arg' <- rec arg
-    traceM $ "arg = " <> show arg' <> " " <> showAll hStack ctx expr
     case f' of
       Continuation (WrapContinuation f) -> pure $ f arg'
       Closure closureCtx name body ->
-        let ctx' = Map.insert name arg' (ctx <> closureCtx) in
-        eval hStack ctx' body
+        eval hStack (Map.insert name arg' closureCtx) body
       other -> error $ concat
         [ "Expected function, got ", show other
         , " (arg=", show arg'
@@ -74,18 +70,11 @@ eval hStack ctx expr = case expr of
     traceM "Handle"
     cont \k ->
       let h = InstalledHandler{ handlerCtx = ctx, kPrev = WrapContinuation k, .. } in
-      let PureHandler{ .. } = pure in
+      let PureHandler{..} = pure in
       wrap k $ runCont (eval (h : hStack) ctx scope) \result ->
         let ctx' = Map.insert pureName result ctx in
         runCont (eval hStack ctx' pureBody) id
   where
-    showAll hStack ctx expr = concat
-      [ "("
-      , "expr = "
-      , show expr
-      , ")"
-      ]
-
     rec = eval hStack ctx
 
     unwrapNumber :: HasCallStack => Value -> Int

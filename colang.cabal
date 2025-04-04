@@ -24,8 +24,10 @@ source-repository head
 
 library
   exposed-modules:
+      Semantics.Defun
       Semantics.Fun
       Syntax
+      Tmp
   other-modules:
       Paths_colang
   autogen-modules:
@@ -34,6 +36,7 @@ library
       src
   default-extensions:
       AllowAmbiguousTypes
+      BangPatterns
       BlockArguments
       ConstraintKinds
       DataKinds
@@ -97,6 +100,7 @@ executable colang-exe
       app
   default-extensions:
       AllowAmbiguousTypes
+      BangPatterns
       BlockArguments
       ConstraintKinds
       DataKinds
@@ -162,6 +166,7 @@ test-suite colang-test
       test
   default-extensions:
       AllowAmbiguousTypes
+      BangPatterns
       BlockArguments
       ConstraintKinds
       DataKinds
