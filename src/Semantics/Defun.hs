@@ -37,9 +37,9 @@ instance Semigroup K where
 instance Monoid K where
   mempty = Halt
 
-data Value 
-  = Number Int 
-  | Closure { name :: VarName, body :: Expr, closCtx :: Context } 
+data Value
+  = Number Int
+  | Closure { name :: VarName, body :: Expr, closCtx :: Context }
   | Continuation { kBody :: K, kCtx :: Context, kHStack :: [InstalledHandler] }
 
 data InstalledHandler = InstalledHandler
@@ -50,7 +50,14 @@ data InstalledHandler = InstalledHandler
 
 eval :: HasCallStack => [InstalledHandler] -> Context -> Expr -> K -> Value
 eval !hStack !ctx !expr !k =
-  trace ("Eval:\n\tEXPR = " <> show expr <> ",\n\tCTX = " <> show ctx <> ",\n\tK = " <> show k <> ",\n\tHSTACK = " <> show hStack) $
+  -- trace (
+  --   replicate 5 '-' <> " " <> "eval" <> " " <> replicate 60 '-' <>
+  --   "\nEXPR = " <> show expr <>
+  --   "\nK = " <> show k <>
+  --   "\nCTX = " <> show ctx <>
+  --   "\nHSTACK = " <> show hStack
+  -- ) $
+  -- todo clear context somewhere
   case expr of
     Const value -> appK hStack ctx k (Number value)
     Plus lhs rhs -> eval hStack ctx lhs (LPlus rhs k)
@@ -58,21 +65,25 @@ eval !hStack !ctx !expr !k =
       let msg = "No such variable " <> name in
       let value = fromMaybe (error msg) (ctx !? name) in
       appK hStack ctx k value
-    Lam name body ->
-      appK hStack ctx k (Closure{ name, body, closCtx = ctx })
-    f :@ arg ->
-      eval hStack ctx f (LApp arg k)
+    Lam name body -> appK hStack ctx k (Closure{ name, body, closCtx = ctx })
+    f :@ arg -> eval hStack ctx f (LApp arg k)
     Do targetOpName arg -> eval hStack ctx arg (KDo targetOpName k)
     Handle {..} ->
       let h = InstalledHandler{ handlerCtx = ctx, kPrev = k, .. } in
       let PureHandler{..} = pure in
-      let result = eval (h : hStack) ctx scope Halt in
-      let pureCtx = Map.insert pureName result ctx in
-      eval hStack pureCtx pureBody k
+      let pureClos = eval hStack ctx (Lam pureName pureBody) Halt in
+      let pureK = RApp pureClos Halt in
+      appK hStack ctx k $ eval (h : hStack) ctx scope pureK
 
 appK :: HasCallStack => [InstalledHandler] -> Context -> K -> Value -> Value
 appK !hStack !ctx !k !value =
-  trace ("appK:\n\tVALUE = " <> show value <> ",\n\tK = " <> show k <> ",\n\tCTX = " <> show ctx <> ",\n\tHSTACK = " <> show hStack) $
+  -- trace (
+  --   replicate 5 '-' <> " " <> "app" <> " " <> replicate 60 '-' <>
+  --   "\nVALUE = " <> show value <>
+  --   "\nK = " <> show k <>
+  --   "\nCTX = " <> show ctx <>
+  --   "\nHSTACK = " <> show hStack
+  -- ) $
   case k of
     Halt -> value
     LPlus rhs k -> eval hStack ctx rhs (RPlus value k)
@@ -80,14 +91,14 @@ appK !hStack !ctx !k !value =
     LApp arg k -> eval hStack ctx arg (RApp value k)
     RApp f' k -> case f' of
       Closure{..} -> eval hStack (Map.insert name value closCtx) body k
-      Continuation{..} -> appK hStack ctx k $ appK kHStack kCtx kBody value -- todo
+      Continuation{..} -> appK hStack ctx k $! appK kHStack kCtx kBody value
       other -> error $ "Expected function, got " <> show other
     KDo targetOpName k ->
       let LookupHandlerResult{..} = hStack `lookupHandler` targetOpName in
       let opK = Continuation { kBody = kSkippedHandlers <> k, kCtx = ctx, kHStack = hStack } in
       let OpHandler{..} = foundHandler in
       let ctx' = Map.insert paramName value $ Map.insert kName opK handlerCtx in
-      eval restHStack ctx' opBody kFoundHandler
+      eval restHStack ctx' opBody Halt
   where
     unwrapNumber :: HasCallStack => Value -> Int
     unwrapNumber = \case
@@ -106,7 +117,7 @@ data LookupHandlerResult = LookupHandlerResult
 lookupHandler :: HasCallStack => [InstalledHandler] -> OpName -> LookupHandlerResult
 lookupHandler hStack targetOpName = case hStack of
   [] -> error $ "No handler for " <> targetOpName <> " found"
-  InstalledHandler{..} : restHStack 
+  InstalledHandler{..} : restHStack
     | Just foundHandler <- find (\OpHandler{..} -> opName == targetOpName) ops ->
       LookupHandlerResult{ kFoundHandler = kPrev, kSkippedHandlers = mempty, .. }
   InstalledHandler{..} : restHStack ->
@@ -126,7 +137,12 @@ deriving stock instance Generic K
 instance Out K
 instance Show K where
   show = pretty
-deriving stock instance Generic InstalledHandler
-instance Out InstalledHandler
+-- deriving stock instance Generic InstalledHandler
+-- instance Out InstalledHandler
+-- instance Show InstalledHandler where
+--   show = pretty
+instance Out InstalledHandler where
+  doc = const $ PP.text "<ih>"
+  docPrec = const doc
 instance Show InstalledHandler where
   show = pretty

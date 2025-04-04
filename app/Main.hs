@@ -6,25 +6,28 @@ import Semantics.Defun
 main :: IO ()
 main = do
   putStrLn "Hello!"
-  -- print $ eval' example1
-  -- print $ eval' example2
-  -- print $ eval' example3
-  -- print $ eval' example4
-  -- print $ eval' example5
-  -- print $ eval' example6
-  -- print $ eval' testPureWorks
-  -- print $ eval' testPureWorksDepth
-  print $ eval' exampleGet
+  putStr "example1: "; print $ eval' example1
+  putStr "example2: "; print $ eval' example2
+  putStr "example3: "; print $ eval' example3
+  putStr "example4: "; print $ eval' example4
+  putStr "example5: "; print $ eval' example5
+  putStr "example6: "; print $ eval' example6
+  putStr "testPureWorks: "; print $ eval' testPureWorks
+  putStr "testPureWorksDepth: "; print $ eval' testPureWorksDepth
+  putStr "exampleGet: "; print $ eval' exampleGet
 
+-- expected 6
 example1 :: Expr
 example1 =
   ("x" =. c 1 +. c 2) $
   ("y" =. v "x" +. c 3) $
   v "y"
 
+-- expected 1
 example2 :: Expr
 example2 = Lam "x" (Lam "y" $ v "x") :@ c 1 :@ c 2
 
+-- expected 42
 example3 :: Expr
 example3 =
   withHandler
@@ -34,6 +37,7 @@ example3 =
   ("y" =. c 41) $
   Do "throw" (v "x" +. v "y")
 
+-- expected 20
 example4 :: Expr
 example4 =
   withHandler
@@ -41,6 +45,7 @@ example4 =
     [("ask", "_", "k") --> v "k" :@ c 10] $
   Do "ask" (c 0) +. Do "ask" (c 1)
 
+-- expected 33
 example5 :: Expr
 example5 =
   withHandler
@@ -51,6 +56,7 @@ example5 =
     [("ask2", "_", "k") --> v "k" :@ c 30] $
   Do "ask1" (c 0) +. Do "ask2" (c 1)
 
+-- expected 13
 example6 :: Expr
 example6 =
   withHandler
@@ -80,37 +86,23 @@ testPureWorksDepth =
     [("ask2", "_", "k") --> v "k" :@ c 100] $
   Do "ask1" (c 0) +. Do "ask2" (c 1)
 
-withState :: Expr -> Expr -> Expr
-withState ini scope = 
+withState :: OpName -> Expr -> Expr -> Expr
+withState name ini scope =
   withHandler
     ("x" --> Lam "s" $ v "x")
-    [ ("get", "_", "k") --> Lam "s" $ v "k" :@ v "s" :@ v "s"
-    , ("put", "s'", "k") --> Lam "s" $ v "k" :@ v "s" :@ v "s'"
-    ] 
-    scope 
+    [ ("get(" <> name <> ")", "_", "k") --> Lam "s" $ v "k" :@ v "s" :@ v "s"
+    , ("put(" <> name <> ")", "s'", "k") --> Lam "s" $ v "k" :@ v "s" :@ v "s'"
+    ]
+    scope
   :@ ini
 
--- expected 1
+-- expected 42
 exampleGet :: Expr
 exampleGet =
-  withState (c 1) $
-  Do "put" (c 10) $$ 
-  Do "get" (c 0)
-
--- example3 :: Expr
--- example3 =
---   withHandler "throw" (v "p") $
-
-
--- example4 :: Expr
--- example4 =
---   withHandler "ask'" (v "k" :@ c 41) $
---   withHandler "ask" (v "k" :@ c 1) $
---     Do "ask" (c 0) +. Do "ask'" (c 0)
-
--- example5 :: Expr
--- example5 =
---   ("f" =. Lam "_" (Do "ask" (c 0))) $
---   withHandler "ask'" (v "k" :@ c 41) $
---   withHandler "ask" (v "k" :@ Do "ask'" (c 0)) $
---     Do "ask" (c 0) +. Do "ask'" (c 0) +. v "f" :@ c 0
+  withState "y" (c 1000) $
+  withState "x" (c 1) $
+  Do "put(x)" (c 10) $$
+  ("z" =. Do "get(x)" (c 0)) $
+  Do "put(x)" (v "z" +. c 32) $$
+  Do "put(y)" (c (-100)) $$
+  Do "get(x)" (c 0) +. Do "get(y)" (c 0)
