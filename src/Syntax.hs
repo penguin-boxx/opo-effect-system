@@ -12,10 +12,10 @@ data Expr
   | Expr :@ Expr
   | Lam VarName Expr
   | Do OpName Expr
-  | Handle 
-    { pure :: PureHandler
-    , ops :: [OpHandler]
-    , scope :: Expr
+  | Handle
+    { hPure :: PureHandler
+    , hOps :: [OpHandler]
+    , hScope :: Expr
     }
 
 data PureHandler = PureHandler
@@ -61,7 +61,7 @@ instance LongArrow VarName Expr (VarName, Expr) where
   (-->) = (,)
 
 withHandler :: (VarName, Expr) -> [OpHandler] -> Expr -> Expr
-withHandler (pureName, pureBody) ops scope = Handle{ pure = PureHandler{..}, .. }
+withHandler (pureName, pureBody) hOps hScope = Handle{ hPure = PureHandler{..}, .. }
 
 deriving stock instance Generic Expr
 instance Out Expr

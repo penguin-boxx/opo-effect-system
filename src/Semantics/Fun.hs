@@ -70,20 +70,20 @@ eval hStack ctx expr = case expr of
     traceM "Handle"
     cont \k ->
       let h = InstalledHandler{ handlerCtx = ctx, kPrev = WrapContinuation k, .. } in
-      let PureHandler{..} = pure in
-      wrap k $ runCont (eval (h : hStack) ctx scope) \result ->
+      let PureHandler{..} = hPure in
+      wrap k $ runCont (eval (h : hStack) ctx hScope) \result ->
         let ctx' = Map.insert pureName result ctx in
         runCont (eval hStack ctx' pureBody) id
   where
     rec = eval hStack ctx
 
     unwrapNumber :: HasCallStack => Value -> Int
-    unwrapNumber = \case 
+    unwrapNumber = \case
       Number value -> value
-      other -> error $ "Expected number, got " <> show other 
+      other -> error $ "Expected number, got " <> show other
 
 wrap :: Show a => (a -> a) -> a -> a
-wrap f x = 
+wrap f x =
   let res = f x in
   trace ("wrapBegin " <> show x) $
   trace ("wrapEnd " <> show res)
@@ -101,7 +101,7 @@ data LookupHandlerResult = LookupHandlerResult
 lookupHandler :: HasCallStack => [InstalledHandler] -> OpName -> LookupHandlerResult
 lookupHandler hStack targetOpName = case hStack of
   [] -> error $ "No handler for " <> targetOpName <> " found"
-  InstalledHandler{..} : restHStack 
+  InstalledHandler{..} : restHStack
     | Just foundHandler <- find (\OpHandler{..} -> opName == targetOpName) ops ->
       LookupHandlerResult{ kFoundHandler = kPrev, kSkippedHandlers = mempty, .. }
   InstalledHandler{..} : restHStack ->

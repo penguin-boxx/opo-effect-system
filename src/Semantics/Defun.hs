@@ -23,6 +23,8 @@ data K
   | LApp Expr K
   | RApp Value K
   | KDo OpName K
+  | KHandler PureHandler K K
+  | KReset Context K
 
 instance Semigroup K where
   -- actions from r will be executed first
@@ -33,23 +35,25 @@ instance Semigroup K where
     LApp arg k -> LApp arg (l <> k)
     RApp f' k -> RApp f' (l <> k)
     KDo name k -> KDo name (l <> k)
+    KHandler hPure k' k -> KHandler hPure k' (l <> k)
+    KReset ctx k -> KReset ctx (l <> k)
 
 instance Monoid K where
   mempty = Halt
 
 data Value
   = Number Int
-  | Closure { name :: VarName, body :: Expr, closCtx :: Context }
+  | Closure { argName :: VarName, closBody :: Expr, closCtx :: Context }
   | Continuation { kBody :: K, kCtx :: Context, kHStack :: [InstalledHandler] }
 
 data InstalledHandler = InstalledHandler
-  { handlerCtx :: Context
-  , ops :: [OpHandler]
-  , kPrev :: K
+  { hCtx :: Context
+  , hOps :: [OpHandler]
+  , hKPrev :: K
   }
 
 eval :: HasCallStack => [InstalledHandler] -> Context -> Expr -> K -> Value
-eval !hStack !ctx !expr !k =
+eval = undefined -- !hStack !ctx !expr !k = undefined
   -- trace (
   --   replicate 5 '-' <> " " <> "eval" <> " " <> replicate 60 '-' <>
   --   "\nEXPR = " <> show expr <>
@@ -58,25 +62,26 @@ eval !hStack !ctx !expr !k =
   --   "\nHSTACK = " <> show hStack
   -- ) $
   -- todo clear context somewhere
-  case expr of
-    Const value -> appK hStack ctx k (Number value)
-    Plus lhs rhs -> eval hStack ctx lhs (LPlus rhs k)
-    Var name ->
-      let msg = "No such variable " <> name in
-      let value = fromMaybe (error msg) (ctx !? name) in
-      appK hStack ctx k value
-    Lam name body -> appK hStack ctx k (Closure{ name, body, closCtx = ctx })
-    f :@ arg -> eval hStack ctx f (LApp arg k)
-    Do targetOpName arg -> eval hStack ctx arg (KDo targetOpName k)
-    Handle {..} ->
-      let h = InstalledHandler{ handlerCtx = ctx, kPrev = k, .. } in
-      let PureHandler{..} = pure in
-      let pureClos = eval hStack ctx (Lam pureName pureBody) Halt in
-      let pureK = RApp pureClos Halt in
-      appK hStack ctx k $ eval (h : hStack) ctx scope pureK
+  -- case expr of
+  --   Const value -> appK hStack ctx k (Number value)
+  --   Plus lhs rhs -> eval hStack ctx lhs (LPlus rhs k)
+  --   Var name ->
+  --     let msg = "No such variable " <> name in
+  --     let value = fromMaybe (error msg) (ctx !? name) in
+  --     appK hStack ctx k value
+  --   Lam argName closBody -> appK hStack ctx k (Closure{ closCtx = ctx, .. })
+  --   f :@ arg -> eval hStack ctx f (LApp arg k)
+  --   Do targetOpName arg -> eval hStack ctx arg (KDo targetOpName k)
+  --   Handle {..} ->
+  --     let h = InstalledHandler{ hCtx = ctx, hKPrev = k, .. } in
+  --     eval (h : hStack) ctx hScope (KHandler hPure k Halt)
+      -- let PureHandler{..} = pure in
+      -- let pureClos = eval hStack ctx (Lam pureName pureBody) Halt in
+      -- let pureK = RApp pureClos Halt in
+      -- appK hStack ctx k $ eval (h : hStack) ctx scope pureK
 
 appK :: HasCallStack => [InstalledHandler] -> Context -> K -> Value -> Value
-appK !hStack !ctx !k !value =
+appK = undefined -- !hStack !ctx !k !value = undefined
   -- trace (
   --   replicate 5 '-' <> " " <> "app" <> " " <> replicate 60 '-' <>
   --   "\nVALUE = " <> show value <>
@@ -84,44 +89,46 @@ appK !hStack !ctx !k !value =
   --   "\nCTX = " <> show ctx <>
   --   "\nHSTACK = " <> show hStack
   -- ) $
-  case k of
-    Halt -> value
-    LPlus rhs k -> eval hStack ctx rhs (RPlus value k)
-    RPlus lhs' k -> appK hStack ctx k (Number $ unwrapNumber lhs' + unwrapNumber value)
-    LApp arg k -> eval hStack ctx arg (RApp value k)
-    RApp f' k -> case f' of
-      Closure{..} -> eval hStack (Map.insert name value closCtx) body k
-      Continuation{..} -> appK hStack ctx k $! appK kHStack kCtx kBody value
-      other -> error $ "Expected function, got " <> show other
-    KDo targetOpName k ->
-      let LookupHandlerResult{..} = hStack `lookupHandler` targetOpName in
-      let opK = Continuation { kBody = kSkippedHandlers <> k, kCtx = ctx, kHStack = hStack } in
-      let OpHandler{..} = foundHandler in
-      let ctx' = Map.insert paramName value $ Map.insert kName opK handlerCtx in
-      eval restHStack ctx' opBody Halt
-  where
-    unwrapNumber :: HasCallStack => Value -> Int
-    unwrapNumber = \case
-      Number value -> value
-      other -> error $ "Expected number, got " <> show other
+--   case k of
+--     Halt -> value
+--     LPlus rhs k -> eval hStack ctx rhs (RPlus value k)
+--     RPlus lhs' k -> appK hStack ctx k (Number $ unwrapNumber lhs' + unwrapNumber value)
+--     LApp arg k -> eval hStack ctx arg (RApp value k)
+--     RApp f' k -> case f' of
+--       Closure{..} -> eval hStack (Map.insert argName value closCtx) closBody (KReset ctx k)
+--       Continuation{..} -> appK hStack ctx k $! appK kHStack kCtx kBody value
+--       other -> error $ "Expected function, got " <> show other
+--     KDo targetOpName k ->
+--       let LookupHandlerResult{..} = hStack `lookupHandler` targetOpName in
+--       let opK = Continuation { kBody = kSkippedHandlers <> k, kCtx = ctx, kHStack = hStack } in
+--       let OpHandler{..} = foundHandler in
+--       let ctx' = Map.insert paramName value $ Map.insert kName opK handlerCtx in
+--       eval restHStack ctx' opBody Halt
+--     KHandler PureHandler{..} kPrev k -> undefined
+--     KReset ctx' k -> appK hStack ctx' k value
+--   where
+--     unwrapNumber :: HasCallStack => Value -> Int
+--     unwrapNumber = \case
+--       Number value -> value
+--       other -> error $ "Expected number, got " <> show other
 
-data LookupHandlerResult = LookupHandlerResult
-  { foundHandler :: OpHandler
-  , handlerCtx :: Context
-  , kFoundHandler :: K
-  , kSkippedHandlers :: K
-  , restHStack :: [InstalledHandler]
-  }
-  deriving stock (Show, Generic)
+-- data LookupHandlerResult = LookupHandlerResult
+--   { foundHandler :: OpHandler
+--   , handlerCtx :: Context
+--   , kFoundHandler :: K
+--   , kSkippedHandlers :: K
+--   , restHStack :: [InstalledHandler]
+--   }
+--   deriving stock (Show, Generic)
 
-lookupHandler :: HasCallStack => [InstalledHandler] -> OpName -> LookupHandlerResult
-lookupHandler hStack targetOpName = case hStack of
-  [] -> error $ "No handler for " <> targetOpName <> " found"
-  InstalledHandler{..} : restHStack
-    | Just foundHandler <- find (\OpHandler{..} -> opName == targetOpName) ops ->
-      LookupHandlerResult{ kFoundHandler = kPrev, kSkippedHandlers = mempty, .. }
-  InstalledHandler{..} : restHStack ->
-    over #kSkippedHandlers (<> kPrev) (restHStack `lookupHandler` targetOpName)
+-- lookupHandler :: HasCallStack => [InstalledHandler] -> OpName -> LookupHandlerResult
+-- lookupHandler hStack targetOpName = case hStack of
+--   [] -> error $ "No handler for " <> targetOpName <> " found"
+--   InstalledHandler{..} : restHStack
+--     | Just foundHandler <- find (\OpHandler{..} -> opName == targetOpName) hOps ->
+--       LookupHandlerResult{ kFoundHandler = hKPrev, kSkippedHandlers = mempty, .. }
+--   InstalledHandler{..} : restHStack ->
+--     over #kSkippedHandlers (<> hKPrev) (restHStack `lookupHandler` targetOpName)
 
 eval' :: Expr -> Value
 eval' expr = eval [] Map.empty expr Halt

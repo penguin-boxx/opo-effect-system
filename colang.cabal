@@ -26,6 +26,7 @@ library
   exposed-modules:
       Semantics.Defun
       Semantics.Fun
+      Semantics.Simple
       Syntax
       Tmp
   other-modules:

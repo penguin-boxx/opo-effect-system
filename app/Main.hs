@@ -1,20 +1,24 @@
 module Main where
 
 import Syntax
-import Semantics.Defun
+import Semantics.Simple
 
 main :: IO ()
 main = do
   putStrLn "Hello!"
-  putStr "example1: "; print $ eval' example1
-  putStr "example2: "; print $ eval' example2
-  putStr "example3: "; print $ eval' example3
-  putStr "example4: "; print $ eval' example4
-  putStr "example5: "; print $ eval' example5
-  putStr "example6: "; print $ eval' example6
-  putStr "testPureWorks: "; print $ eval' testPureWorks
-  putStr "testPureWorksDepth: "; print $ eval' testPureWorksDepth
-  putStr "exampleGet: "; print $ eval' exampleGet
+  -- putStr "example1: "; print $ eval example1
+  -- putStr "example2: "; print $ eval example2
+  -- putStr "example3: "; print $ eval example3
+  -- putStr "example4: "; print $ eval example4
+  -- putStr "example5: "; print $ eval example5
+  -- putStr "example6: "; print $ eval example6
+  -- putStr "testPureWorks: "; print $ eval testPureWorks
+  -- putStr "testPureWorksDepth: "; print $ eval testPureWorksDepth
+  -- putStr "exampleGetPut: "; print $ eval exampleGetPut
+  -- putStr "exampleGetXGetY: "; print $ eval exampleGetXGetY
+  -- putStr "exampleGetYGetX: "; print $ eval exampleGetXGetY
+  -- putStr "exampleXYGetPut: "; print $ eval exampleXYGetPut
+  putStr "exampleNonDet: "; print $ eval exampleNonDet
 
 -- expected 6
 example1 :: Expr
@@ -97,12 +101,44 @@ withState name ini scope =
   :@ ini
 
 -- expected 42
-exampleGet :: Expr
-exampleGet =
-  withState "y" (c 1000) $
-  withState "x" (c 1) $
-  Do "put(x)" (c 10) $$
-  ("z" =. Do "get(x)" (c 0)) $
-  Do "put(x)" (v "z" +. c 32) $$
-  Do "put(y)" (c (-100)) $$
+exampleGetPut :: Expr
+exampleGetPut =
+  withState "x" (c 10) $
+  ("tmp" =. Do "get(x)" (c 0)) $
+  Do "put(x)" (v "tmp" +. c 32) $$
+  Do "get(x)" (c 0)
+
+exampleGetXGetY :: Expr
+exampleGetXGetY =
+  withState "x" (c 10) $
+  withState "y" (c 32) $
   Do "get(x)" (c 0) +. Do "get(y)" (c 0)
+
+exampleGetYGet :: Expr
+exampleGetYGet =
+  withState "x" (c 10) $
+  withState "y" (c 32) $
+  Do "get(x)" (c 0) +. Do "get(y)" (c 0)
+
+-- expected 32
+exampleXYGetPut :: Expr
+exampleXYGetPut =
+  withState "x" (c 10) $
+  withState "y" (c 11) $
+  ("z" =. Do "get(x)" (c 0) +. Do "get(y)" (c 0)) $
+  Do "put(x)" (v "z") $$
+  Do "get(x)" (c 0) +. Do "get(y)" (c 0)
+
+exampleNonDet :: Expr
+exampleNonDet =
+  ("nil" =. Lam "s" $ Lam "z" $ v "z") $
+  ("cons" =. Lam "x" $ Lam "xs" $ Lam "s" $ Lam "z" $ v "s" :@ v "x" :@ (v "xs" :@ v "s" :@ v "z")) $
+  ("++" =. Lam "xs" $ Lam "ys" $ Lam "s" $ Lam "z" $ v "xs" :@ v "s" :@ (v "ys" :@ v "s" :@ v "z")) $
+  ("plus" =. Lam "x" $ Lam "y" $ v "x" +. v "y") $
+  ("sum" =. Lam "xs" $ v "xs" :@ v "plus" :@ c 0) $
+  ("xs" =. v "cons" :@ c 1 :@ (v "cons" :@ c 2 :@ v "nil")) $
+  v "sum" :@
+    withHandler
+      ("x" --> v "cons" :@ v "x" :@ v "nil")
+      [("choice", "_", "k") --> v "++" :@ (v "k" :@ c 1) :@ (v "k" :@ c 10)]
+    (Do "choice" (c 0) +. Do "choice" (c 0))
