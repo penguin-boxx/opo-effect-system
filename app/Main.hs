@@ -18,7 +18,8 @@ main = do
   -- putStr "exampleGetXGetY: "; print $ eval exampleGetXGetY
   -- putStr "exampleGetYGetX: "; print $ eval exampleGetXGetY
   -- putStr "exampleXYGetPut: "; print $ eval exampleXYGetPut
-  putStr "exampleNonDet: "; print $ eval exampleNonDet
+  -- putStr "exampleNonDet: "; print $ eval exampleNonDet
+  putStr "examplePair: "; print $ eval examplePair
 
 -- expected 6
 example1 :: Expr
@@ -142,3 +143,8 @@ exampleNonDet =
       ("x" --> v "cons" :@ v "x" :@ v "nil")
       [("choice", "_", "k") --> v "++" :@ (v "k" :@ c 1) :@ (v "k" :@ c 10)]
     (Do "choice" (c 0) +. Do "choice" (c 0))
+
+examplePair :: Expr
+examplePair =
+  ("tmp" =. Pair (c 1) (c 10)) $
+  Fst (v "tmp") +. Snd (v "tmp")

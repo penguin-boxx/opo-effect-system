@@ -21,6 +21,10 @@ data Frame
   | RPlus Value
   | LApp Expr
   | RApp Value
+  | LPair Expr
+  | RPair Value
+  | KFst
+  | KSnd
   | KDo OpName
   | KHandle
     { hPure :: PureHandler
@@ -35,6 +39,7 @@ data Value
   = Number Int
   | Closure { argName :: VarName, closBody :: Expr, closCtx :: Context }
   | Continuation { kBody :: K, kCtx :: Context }
+  | PairValue Value Value
 
 evalE :: HasCallStack => Context -> Expr -> K -> Value
 evalE !ctx !expr !k =
@@ -53,6 +58,9 @@ evalE !ctx !expr !k =
       evalK ctx k value
     Lam argName closBody -> evalK ctx k Closure{ closCtx = ctx, .. }
     f :@ arg -> evalE ctx f (LApp arg : k)
+    Pair l r -> evalE ctx l (LPair r : k)
+    Fst expr -> evalE ctx expr (KFst : k)
+    Snd expr -> evalE ctx expr (KSnd : k)
     Do targetOpName arg -> evalE ctx arg (KDo targetOpName : k)
     Handle{..} -> evalE ctx hScope (KHandle { hCtx = ctx, .. } : k)
 
@@ -73,6 +81,14 @@ evalK !ctx !k !value =
       Closure{..} -> evalE (Map.insert argName value closCtx) closBody (EndScope ctx : k)
       Continuation{..} -> evalK kCtx (kBody ++ EndScope ctx : k) value
       other -> error $ "Expected function, got " <> show other
+    LPair r : k -> evalE ctx r (RPair value : k)
+    RPair l' : k -> evalK ctx k (PairValue l' value)
+    KFst : k -> case value of
+      PairValue l _ -> evalK ctx k l
+      other -> error $ "Expected pair, got " <> show other
+    KSnd : k -> case value of
+      PairValue _ r -> evalK ctx k r
+      other -> error $ "Expected pair, got " <> show other
     KDo targetOpName : k ->
       let (OpHandler{..}, hCtx, kHandler, kTop) = splitK targetOpName k in
       let opK = Continuation { kBody = kTop, kCtx = ctx } in

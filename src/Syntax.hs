@@ -11,6 +11,9 @@ data Expr
   | Var VarName
   | Expr :@ Expr
   | Lam VarName Expr
+  | Pair Expr Expr
+  | Fst Expr
+  | Snd Expr
   | Do OpName Expr
   | Handle
     { hPure :: PureHandler
