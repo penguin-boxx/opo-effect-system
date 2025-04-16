@@ -1,4 +1,6 @@
-module Semantics.Simple where
+{-# OPTIONS_GHC "-Wno-orphans" #-}
+
+module Semantics where
 
 import Control.Monad.Cont
 import Data.Foldable
@@ -32,6 +34,7 @@ data Frame
     , hCtx :: Context
     }
   | EndScope Context
+  deriving Eq
 
 type K = [Frame]
 
@@ -40,6 +43,7 @@ data Value
   | Closure { argName :: VarName, closBody :: Expr, closCtx :: Context }
   | Continuation { kBody :: K, kCtx :: Context }
   | PairValue Value Value
+  deriving Eq
 
 evalE :: HasCallStack => Context -> Expr -> K -> Value
 evalE !ctx !expr !k =

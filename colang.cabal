@@ -24,11 +24,10 @@ source-repository head
 
 library
   exposed-modules:
-      Semantics.Defun
-      Semantics.Fun
-      Semantics.Simple
+      Embedding
+      Semantics
+      Stdlib
       Syntax
-      Tmp
   other-modules:
       Paths_colang
   autogen-modules:
