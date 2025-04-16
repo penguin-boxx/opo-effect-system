@@ -6,25 +6,31 @@ import Embedding
 withStdLib :: Expr -> Expr
 withStdLib =
   (#unit =. c 0) .
-  (#nil =. Lam "s" $ Lam "z" $ v "z") .
-  (#cons =. Lam "x" $ Lam "xs" $ Lam "s" $ Lam "z" $ v "s" :@ v "x" :@ (v "xs" :@ v "s" :@ v "z")) .
-  ("++" =. Lam "xs" $ Lam "ys" $ Lam "s" $ Lam "z" $ v "xs" :@ v "s" :@ (v "ys" :@ v "s" :@ v "z")) .
-  (#plus =. Lam "x" $ Lam "y" $ v "x" +. v "y") .
-  (#sum =. Lam "xs" $ v "xs" :@ v "plus" :@ c 0) .
-  (#inl =. Lam "x" $ Lam "f" $ Lam "g" $ v "f" :@ v "x") .
-  (#inr =. Lam "y" $ Lam "f" $ Lam "g" $ v "g" :@ v "x") .
-  (#case =. Lam "variant" $ Lam "f" $ Lam "g" $ v "variant" :@ v "f" :@ v "g") .
-  (#true =. Lam "x" $ Lam "y" $ v "x") .
-  (#false =. Lam "x" $ Lam "y" $ v "y") .
-  (#if =. Lam "x" $ v "x") .
+  (#nil =. Lam #s $ Lam #z #z) .
+  (#cons =. Lam #x $ Lam #xs $ Lam #s $ Lam #z $ #s :@ #x :@ (#xs :@ #s :@ #z)) .
+  ("++" =. Lam #xs $ Lam #ys $ Lam #s $ Lam #z $ #xs :@ #s :@ (#ys :@ #s :@ #z)) .
+  (#plus =. Lam #x $ Lam #y $ #x +. #y) .
+  (#sum =. Lam #xs $ #xs :@ #plus :@ c 0) .
+  (#inl =. Lam #x $ Lam #f $ Lam #g $ #f :@ #x) .
+  (#inr =. Lam #y $ Lam #f $ Lam #g $ #g :@ #x) .
+  (#case =. Lam #variant $ Lam #f $ Lam #g $ #variant :@ #f :@ #g) .
+  (#true =. Lam #x $ Lam #y #x) .
+  (#false =. Lam #x $ Lam #y #y) .
+  (#if =. Lam #x $ #x) .
   (#fix =. Lam #f $ Lam #x (#f :@ (#x :@ #x)) :@ Lam #x (#f :@ (#x :@ #x)))
 
 withState :: OpName -> Expr -> Expr -> Expr
 withState name ini scope =
   withHandler
-    ("x" --> Lam "s" $ v "x")
-    [ ("get(" <> name <> ")", "_", "k") --> Lam "s" $ v "k" :@ v "s" :@ v "s"
-    , ("put(" <> name <> ")", "s'", "k") --> Lam "s" $ v "k" :@ v "s" :@ v "s'"
+    (#x --> Lam #s $ #x)
+    [ ("get(" <> name <> ")", #_, #k) --> Lam #s $ #k :@ #s :@ #s
+    , ("put(" <> name <> ")", #s', #k) --> Lam #s $ #k :@ #s :@ #s'
     ]
     scope
   :@ ini
+
+get :: String -> Expr
+get name = Do ("get(" <> name <> ")") (c 0)
+
+put :: String -> Expr -> Expr
+put name = Do ("put(" <> name <> ")")
