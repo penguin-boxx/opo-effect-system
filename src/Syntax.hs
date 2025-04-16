@@ -1,5 +1,8 @@
 module Syntax where
 
+import Data.Proxy
+import GHC.OverloadedLabels
+import GHC.TypeLits
 import Text.PrettyPrint.GenericPretty
 
 type VarName = String
@@ -54,7 +57,7 @@ c = Const
 v :: VarName -> Expr
 v = Var
 
-class LongArrow a b c where
+class LongArrow a b c | c -> a b where
   (-->) :: a -> b -> c
 
 instance LongArrow (OpName, VarName, VarName) Expr OpHandler where
@@ -65,6 +68,12 @@ instance LongArrow VarName Expr (VarName, Expr) where
 
 withHandler :: (VarName, Expr) -> [OpHandler] -> Expr -> Expr
 withHandler (pureName, pureBody) hOps hScope = Handle{ hPure = PureHandler{..}, .. }
+
+instance KnownSymbol name => IsLabel name String where
+  fromLabel = symbolVal $ Proxy @name
+
+instance KnownSymbol name => IsLabel name Expr where
+  fromLabel = v $ symbolVal $ Proxy @name
 
 deriving stock instance Generic Expr
 instance Out Expr
