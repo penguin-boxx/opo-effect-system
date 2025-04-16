@@ -60,13 +60,13 @@ evalE !ctx !expr !k =
       let msg = "No such variable " <> name in
       let value = fromMaybe (error msg) (ctx !? name) in
       evalK ctx k value
-    Lam argName closBody -> evalK ctx k Closure{ closCtx = ctx, .. }
+    Lam argName closBody -> evalK ctx k Closure{ closCtx = ctx, argName, closBody }
     f :@ arg -> evalE ctx f (LApp arg : k)
     Pair l r -> evalE ctx l (LPair r : k)
     Fst expr -> evalE ctx expr (KFst : k)
     Snd expr -> evalE ctx expr (KSnd : k)
     Do targetOpName arg -> evalE ctx arg (KDo targetOpName : k)
-    Handle{..} -> evalE ctx hScope (KHandle { hCtx = ctx, .. } : k)
+    Handle{ hPure, hOps, hScope } -> evalE ctx hScope (KHandle { hCtx = ctx, hPure, hOps } : k)
 
 evalK :: HasCallStack => Context -> K -> Value -> Value
 evalK !ctx !k !value =
@@ -82,8 +82,10 @@ evalK !ctx !k !value =
     RPlus lhs' : k -> evalK ctx k (Number $ unwrapNumber lhs' + unwrapNumber value)
     LApp arg : k -> evalE ctx arg (RApp value : k)
     RApp f' : k -> case f' of
-      Closure{..} -> evalE (Map.insert argName value closCtx) closBody (EndScope ctx : k)
-      Continuation{..} -> evalK kCtx (kBody ++ EndScope ctx : k) value
+      Closure{ argName, closCtx, closBody } ->
+        let ctx' = Map.insert argName value closCtx in
+        evalE ctx' closBody (EndScope ctx : k)
+      Continuation{ kBody, kCtx } -> evalK kCtx (kBody ++ EndScope ctx : k) value
       other -> error $ "Expected function, got " <> show other
     LPair r : k -> evalE ctx r (RPair value : k)
     RPair l' : k -> evalK ctx k (PairValue l' value)
@@ -94,11 +96,11 @@ evalK !ctx !k !value =
       PairValue _ r -> evalK ctx k r
       other -> error $ "Expected pair, got " <> show other
     KDo targetOpName : k ->
-      let (OpHandler{..}, hCtx, kHandler, kTop) = splitK targetOpName k in
+      let (OpHandler{ paramName, kName, opBody }, hCtx, kHandler, kTop) = splitK targetOpName k in
       let opK = Continuation { kBody = kTop, kCtx = ctx } in
       let ctx' = Map.insert paramName value $ Map.insert kName opK hCtx in
       evalE ctx' opBody kHandler
-    KHandle{ hPure = PureHandler{..} } : k ->
+    KHandle{ hPure = PureHandler{ pureName, pureBody } } : k ->
       let ctx' = Map.insert pureName value ctx in
       evalE ctx' pureBody (EndScope ctx : k)
     EndScope ctx' : k -> evalK ctx' k value
@@ -111,8 +113,8 @@ evalK !ctx !k !value =
     splitK :: HasCallStack => OpName -> K -> (OpHandler, Context, K, K)
     splitK targetOpName = \case
       [] -> error $ "No handler for " <> targetOpName <> " found"
-      frame@KHandle{..} : k
-        | Just foundHandler <- find (\OpHandler{..} -> opName == targetOpName) hOps ->
+      frame@KHandle{ hOps, hCtx } : k
+        | Just foundHandler <- find (\OpHandler{ opName } -> opName == targetOpName) hOps ->
           (foundHandler, hCtx, k, [frame])
       frame : k -> (frame :) <$> splitK targetOpName k
 

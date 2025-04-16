@@ -67,7 +67,6 @@ library
       QuantifiedConstraints
       QuasiQuotes
       RankNTypes
-      RecordWildCards
       ScopedTypeVariables
       StandaloneDeriving
       StandaloneKindSignatures
@@ -131,7 +130,6 @@ executable colang-exe
       QuantifiedConstraints
       QuasiQuotes
       RankNTypes
-      RecordWildCards
       ScopedTypeVariables
       StandaloneDeriving
       StandaloneKindSignatures
@@ -197,7 +195,6 @@ test-suite colang-test
       QuantifiedConstraints
       QuasiQuotes
       RankNTypes
-      RecordWildCards
       ScopedTypeVariables
       StandaloneDeriving
       StandaloneKindSignatures

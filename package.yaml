@@ -60,7 +60,6 @@ default-extensions:
   - QuantifiedConstraints
   - QuasiQuotes
   - RankNTypes
-  - RecordWildCards
   - ScopedTypeVariables
   - StandaloneDeriving
   - StandaloneKindSignatures

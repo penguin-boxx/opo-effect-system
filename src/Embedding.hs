@@ -37,13 +37,15 @@ class LongArrow a b c | c -> a b where
   (-->) :: a -> b -> c
 
 instance LongArrow (OpName, VarName, VarName) Expr OpHandler where
-  (opName, paramName, kName) --> opBody = OpHandler{..}
+  (opName, paramName, kName) --> opBody =
+    OpHandler{ opName, paramName, kName, opBody }
 
 instance LongArrow VarName Expr (VarName, Expr) where
   (-->) = (,)
 
 withHandler :: (VarName, Expr) -> [OpHandler] -> Expr -> Expr
-withHandler (pureName, pureBody) hOps hScope = Handle{ hPure = PureHandler{..}, .. }
+withHandler (pureName, pureBody) hOps hScope =
+  Handle{ hPure = PureHandler{ pureName, pureBody }, hOps, hScope }
 
 instance KnownSymbol name => IsLabel name String where
   fromLabel = symbolVal $ Proxy @name
