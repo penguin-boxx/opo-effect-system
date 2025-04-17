@@ -24,7 +24,7 @@ main = runTestTTAndExit $ TestList
       withHandler
         (#x --> #x)
         [(#ask, #_, #k) --> #k :@ c 10] $
-      Do #ask (c 0) +. Do #ask (c 1)
+      do' #ask +. do' #ask
   , TestCase $ assertEqual "many effects in stack" (Number 33) $ eval $
       withHandler
         (#x --> #x)
@@ -32,20 +32,20 @@ main = runTestTTAndExit $ TestList
       withHandler
         (#x --> #x)
         [(#ask2, #_, #k) --> #k :@ c 30] $
-      Do #ask1 (c 0) +. Do #ask2 (c 1)
+      do' #ask1 +. do' #ask2
   , TestCase $ assertEqual "handler performs" (Number 13) $ eval $
       withHandler
         (#x --> #x)
         [(#ask1, #_, #k) --> #k :@ c 3] $
       withHandler
         (#x --> #x)
-        [(#ask2, #_, #k) --> #k :@ (Do #ask1 (c 1) +. c 10)] $
-      Do #ask2 (c 0)
+        [(#ask2, #_, #k) --> #k :@ (do' #ask1 +. c 10)] $
+      do' #ask2
   , TestCase $ assertEqual "pure works" (Number 21) $ eval $
       withHandler
         (#x --> #x +. c 1)
         [(#ask, #_, #k) --> #k :@ c 10] $
-      Do #ask (c 0) +. Do #ask (c 1)
+      do' #ask +. do' #ask
   , TestCase $ assertEqual "pure with many handlers" (Number 1111) $ eval $
       withHandler
         (#x --> #x +. c 1)
@@ -53,7 +53,7 @@ main = runTestTTAndExit $ TestList
       withHandler
         (#x --> #x +. c 1000)
         [(#ask2, #_, #k) --> #k :@ c 100] $
-      Do #ask1 (c 0) +. Do #ask2 (c 1)
+      do' #ask1 +. do' #ask2
   , TestCase $ assertEqual "get + put" (Number 42) $ eval $
       withState #x (c 10) $
       (#tmp =. get #x) $
@@ -75,7 +75,7 @@ main = runTestTTAndExit $ TestList
         withHandler
           (#x --> #cons :@ #x :@ v #nil)
           [(#choice, #_, #k) --> #concat :@ (#k :@ c 1) :@ (#k :@ c 10)]
-        (Do #choice (c 0) +. Do #choice (c 0))
+        (do' #choice +. do' #choice)
   , TestCase $ assertEqual "pair" (Number 11) $ eval $
       (#tmp =. Pair (c 1) (c 10)) $
       Fst #tmp +. Snd #tmp

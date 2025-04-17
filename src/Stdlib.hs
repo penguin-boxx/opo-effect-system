@@ -5,7 +5,6 @@ import Embedding
 
 withStdLib :: Expr -> Expr
 withStdLib =
-  (#unit =. c 0) .
   (#nil =. Lam #s $ Lam #z #z) .
   (#cons =. Lam #x $ Lam #xs $ Lam #s $ Lam #z $ #s :@ #x :@ (#xs :@ #s :@ #z)) .
   (#concat =. Lam #xs $ Lam #ys $ Lam #s $ Lam #z $ #xs :@ #s :@ (#ys :@ #s :@ #z)) .
@@ -34,3 +33,15 @@ get name = Do ("get(" <> name <> ")") (c 0)
 
 put :: String -> Expr -> Expr
 put name = Do ("put(" <> name <> ")")
+
+thunk :: Expr -> Expr
+thunk = Lam "_"
+
+force :: Expr -> Expr
+force = (:@ unit)
+
+do' :: OpName -> Expr
+do' name = Do name unit
+
+unit :: Expr
+unit = c 0

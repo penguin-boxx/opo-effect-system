@@ -27,12 +27,6 @@ c = Const
 v :: VarName -> Expr
 v = Var
 
-thunk :: Expr -> Expr
-thunk = Lam "_"
-
-force :: Expr -> Expr
-force = (:@ c 0)
-
 class LongArrow a b c | c -> a b where
   (-->) :: a -> b -> c
 
