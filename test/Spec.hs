@@ -74,7 +74,7 @@ main = runTestTTAndExit $ TestList
       #sum :@
         withHandler
           (#x --> #cons :@ #x :@ v #nil)
-          [(#choice, #_, #k) --> v "++" :@ (#k :@ c 1) :@ (#k :@ c 10)]
+          [(#choice, #_, #k) --> #concat :@ (#k :@ c 1) :@ (#k :@ c 10)]
         (Do #choice (c 0) +. Do #choice (c 0))
   , TestCase $ assertEqual "pair" (Number 11) $ eval $
       (#tmp =. Pair (c 1) (c 10)) $
