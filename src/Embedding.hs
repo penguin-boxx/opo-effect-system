@@ -2,6 +2,7 @@
 
 module Embedding where
 
+import Common
 import Syntax
 import Data.Proxy
 import GHC.OverloadedLabels
@@ -13,7 +14,7 @@ infixr 0 $$
 infixl 6 +.
 
 (=.) :: VarName -> Expr -> Expr -> Expr
-(name =. expr) body = Lam name body :@ expr
+(=.) = LetIn
 
 ($$) :: Expr -> Expr -> Expr
 ($$) stmt = "_" =. stmt

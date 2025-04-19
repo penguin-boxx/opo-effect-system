@@ -2,6 +2,8 @@
 
 module Semantics where
 
+import Common
+import Syntax
 import Control.Monad.Cont
 import Data.Foldable
 import Data.Map (Map, (!?))
@@ -9,7 +11,6 @@ import Data.Map qualified as Map
 import Data.Maybe (fromMaybe)
 import Data.List qualified as List
 import Optics
-import Syntax
 import GHC.Generics
 import GHC.Stack
 import Text.PrettyPrint qualified as PP
@@ -67,6 +68,8 @@ evalE !ctx !expr !k =
     Snd expr -> evalE ctx expr (KSnd : k)
     Do targetOpName arg -> evalE ctx arg (KDo targetOpName : k)
     Handle{ hPure, hOps, hScope } -> evalE ctx hScope (KHandle { hCtx = ctx, hPure, hOps } : k)
+    Ascription _ _ expr -> evalE ctx expr k
+    LetIn name expr body -> evalE ctx (Lam name body :@ expr) k
 
 evalK :: HasCallStack => Context -> K -> Value -> Value
 evalK !ctx !k !value =

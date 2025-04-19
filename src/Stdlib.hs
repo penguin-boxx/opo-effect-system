@@ -1,5 +1,6 @@
 module Stdlib where
 
+import Common
 import Syntax
 import Embedding
 
