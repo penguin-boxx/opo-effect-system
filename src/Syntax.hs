@@ -1,9 +1,8 @@
 module Syntax where
 
+import Common
+import Types
 import Text.PrettyPrint.GenericPretty
-
-type VarName = String
-type OpName = String
 
 data Expr
   = Const Int
@@ -20,6 +19,8 @@ data Expr
     , hOps :: [OpHandler]
     , hScope :: Expr
     }
+  | Ascription VarName Ty Expr
+  | LetIn VarName Expr Expr
   deriving Eq
 
 infixl 9 :@

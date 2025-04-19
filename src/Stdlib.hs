@@ -1,5 +1,6 @@
 module Stdlib where
 
+import Common
 import Syntax
 import Embedding
 
@@ -11,12 +12,15 @@ withStdLib =
   (#plus =. Lam #x $ Lam #y $ #x +. #y) .
   (#sum =. Lam #xs $ #xs :@ #plus :@ c 0) .
   (#inl =. Lam #x $ Lam #f $ Lam #g $ #f :@ #x) .
-  (#inr =. Lam #y $ Lam #f $ Lam #g $ #g :@ #x) .
+  (#inr =. Lam #y $ Lam #f $ Lam #g $ #g :@ #y) .
   (#case =. Lam #variant $ Lam #f $ Lam #g $ #variant :@ #f :@ #g) .
   (#true =. Lam #x $ Lam #y #x) .
   (#false =. Lam #x $ Lam #y #y) .
   (#if =. Lam #x $ #x) .
-  (#fix =. Lam #f $ Lam #x (#f :@ (#x :@ #x)) :@ Lam #x (#f :@ (#x :@ #x)))
+  (#zero =. Lam #s $ Lam #z #z) .
+  (#suc =. Lam #n $ Lam #s $ Lam #z $ #s :@ (#n :@ #s :@ #z)) .
+  (#iszero =. Lam #n $ #n :@ Lam #_ #false :@ #true) .
+  (#fix =. Lam #f $ Lam #x (#f :@ Lam #z (#x :@ #x :@ #z)) :@ Lam #x (#f :@ Lam #z (#x :@ #x :@ #z)))
 
 withState :: OpName -> Expr -> Expr -> Expr
 withState name ini scope =

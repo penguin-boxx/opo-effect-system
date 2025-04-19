@@ -7,6 +7,11 @@ import Semantics
 
 main :: IO ()
 main = runTestTTAndExit $ TestList
+  [ testLang
+  ]
+
+testLang :: Test
+testLang = TestLabel "language" $ TestList
   [ TestCase $ assertEqual "substitution" (Number 6) $ eval $
       (#x =. c 1 +. c 2) $
       (#y =. #x +. c 3)
@@ -79,4 +84,13 @@ main = runTestTTAndExit $ TestList
   , TestCase $ assertEqual "pair" (Number 11) $ eval $
       (#tmp =. Pair (c 1) (c 10)) $
       Fst #tmp +. Snd #tmp
+  ]
+
+testStdLib :: Test
+testStdLib = TestLabel "stdlib" $ TestList
+  [ TestCase $ assertEqual "fix" (Number 6) $ eval $
+      withStdLib $
+      (#three =. #suc :@ (#suc :@ (#suc :@ #zero))) $
+      (#fib =. #fix :@ Lam #rec (Lam #n $ #if :@ (#iszero :@ #n) :@ c 1 :@ (#rec :@ (#prev :@ #n)))) $
+      #fib :@ #three :@ (#plus :@ c 1) :@ #zero
   ]
