@@ -34,6 +34,7 @@ default-extensions:
   - BlockArguments
   - ConstraintKinds
   - DataKinds
+  - DeriveDataTypeable
   - DeriveFoldable
   - DeriveFunctor
   - DeriveGeneric
@@ -76,11 +77,11 @@ default-extensions:
 ghc-options:
   - -Wall
   - -Wno-unrecognised-pragmas # to use hlint pragmas in source files
-  - -Wno-unused-imports  # imported by teacher should not cause warnings
-  - -Wno-redundant-constraints # teacher provides some constraints
+  - -Wno-unused-imports
   - -Wno-noncanonical-monoid-instances # can be emitted by macro-generated code
   - -Wno-noncanonical-monad-instances # can be emitted by macro-generated code
   - -Wno-name-shadowing # just very inconvenient with helper functions
+  - -Wno-unused-foralls
 
 library:
   source-dirs: src

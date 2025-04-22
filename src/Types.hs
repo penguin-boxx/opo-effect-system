@@ -1,21 +1,30 @@
 module Types where
 
 import Common
+import Data.Data
 import Data.Map (Map)
+import Data.Map qualified as Map
+import Data.Typeable
 import Text.PrettyPrint.GenericPretty
 
 type TyName = String
-type TyIdx = Int
 
-data MonoTy = MonoTy TyName TyIdx [MonoTy]
-  deriving Eq
+data MonoTy = MonoTy { tyCtor :: TyName, tyArgs :: [MonoTy] }
+  deriving (Eq, Data, Typeable)
+
+mkVar :: TyName -> MonoTy
+mkVar = monoFromName
+
+monoFromName :: TyName -> MonoTy
+monoFromName name = MonoTy { tyCtor = name, tyArgs = [] }
 
 type Effs = Map OpName Ty
 
-data Ty
-  = Effs :=> MonoTy
-  | Forall TyName Ty
-  deriving Eq
+data Ty = Ty { tyParams :: [TyName], effs :: Effs, monoTy :: MonoTy }
+  deriving (Eq, Data, Typeable)
+
+tyFromMono :: MonoTy -> Ty
+tyFromMono monoTy = Ty { tyParams = [], effs = Map.empty, monoTy }
 
 deriving stock instance Generic MonoTy
 instance Out MonoTy

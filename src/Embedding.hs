@@ -5,6 +5,8 @@ module Embedding where
 import Common
 import Syntax
 import Data.Proxy
+import Types
+import Optics
 import GHC.OverloadedLabels
 import GHC.TypeLits
 
@@ -28,6 +30,12 @@ c = Const
 v :: VarName -> Expr
 v = Var
 
+(.:) :: VarName -> Ty -> Expr -> Expr
+(.:) = Ascription
+
+f :: TyName -> Ty -> Ty
+f name = over #tyParams (name :)
+
 class LongArrow a b c | c -> a b where
   (-->) :: a -> b -> c
 
@@ -38,6 +46,12 @@ instance LongArrow (OpName, VarName, VarName) Expr OpHandler where
 instance LongArrow VarName Expr (VarName, Expr) where
   (-->) = (,)
 
+instance LongArrow MonoTy MonoTy MonoTy where
+  l --> r = MonoTy { tyCtor = "->", tyArgs = [l, r] }
+
+instance LongArrow MonoTy MonoTy Ty where
+  l --> r = tyFromMono $ MonoTy { tyCtor = "->", tyArgs = [l, r] }
+
 withHandler :: (VarName, Expr) -> [OpHandler] -> Expr -> Expr
 withHandler (pureName, pureBody) hOps hScope =
   Handle{ hPure = PureHandler{ pureName, pureBody }, hOps, hScope }
@@ -47,3 +61,6 @@ instance KnownSymbol name => IsLabel name String where
 
 instance KnownSymbol name => IsLabel name Expr where
   fromLabel = v $ symbolVal $ Proxy @name
+
+instance KnownSymbol name => IsLabel name MonoTy where
+  fromLabel = mkVar $ symbolVal $ Proxy @name
