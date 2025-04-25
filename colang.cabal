@@ -82,7 +82,7 @@ library
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -Wno-unused-foralls
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing
   build-depends:
       GenericPretty
     , base >=4.7 && <5
@@ -147,7 +147,7 @@ executable colang-exe
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -Wno-unused-foralls -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       GenericPretty
     , base >=4.7 && <5
@@ -214,7 +214,7 @@ test-suite colang-test
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -Wno-unused-foralls -threaded -rtsopts -with-rtsopts=-N -Wno-orphans -Wno-type-defaults
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -threaded -rtsopts -with-rtsopts=-N -Wno-orphans -Wno-type-defaults
   build-depends:
       GenericPretty
     , HUnit

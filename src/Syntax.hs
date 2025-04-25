@@ -19,8 +19,8 @@ data Expr
     , hOps :: [OpHandler]
     , hScope :: Expr
     }
-  | Ascription VarName Ty Expr
   | LetIn VarName Expr Expr
+  | Ascription VarName Ty Expr
   deriving Eq
 
 infixl 9 :@
