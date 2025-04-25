@@ -4,6 +4,7 @@ import Common
 import Data.Data
 import Data.Map (Map)
 import Data.Map qualified as Map
+import Data.Char
 import Data.Typeable
 import Text.PrettyPrint.GenericPretty
 
@@ -17,6 +18,9 @@ mkVar = monoFromName
 
 monoFromName :: TyName -> MonoTy
 monoFromName name = MonoTy { tyCtor = name, tyArgs = [] }
+
+isVarCtor :: TyName -> Bool
+isVarCtor = isLowerCase . head
 
 type Effs = Map OpName Ty
 

@@ -37,6 +37,8 @@ data Constraint
   | MonoTy := MonoTy
   | Constraints :=> Constraints
 
+infix 6 :=
+
 type Constraints = [Constraint]
 
 type TyContext = Map VarName Ty
@@ -46,8 +48,8 @@ infer expr = do
   ((core, resTy), constraints) <-
     runFreshT @MonoTy $ flip runReaderT Map.empty $ runWriterT $
     elaborate expr
-  (subst, residuals) <- solve constraints
-  reportErrors residuals
+  ((subst, residuals), errors) <- runWriterT $ solve constraints
+  reportErrors residuals errors
   let monoTy = subst `appTySubst` resTy
   zonked <- zonk core subst
   generalize zonked monoTy
@@ -67,48 +69,67 @@ elaborate = \case
     Just Ty{ tyParams, monoTy } -> do
       subst <- forM tyParams \param -> (param,) <$> fresh @MonoTy
       let core = Var name `TApp` map snd subst
-      let ty = mkTySubst subst `appTySubst` monoTy
-      pure (core, ty)
+      let withTypeApplications = mkTySubst subst `appTySubst` monoTy
+      pure (core, withTypeApplications)
+  f Syntax.:@ arg -> do
+    resTy <- fresh @MonoTy
+    (f', fTy) <- elaborate f
+    (arg', argTy) <- elaborate arg
+    tell [fTy := argTy --> resTy]
+    pure (App f' arg', resTy)
   Syntax.Ascription name ty expr ->
     local (Map.insert name ty) $ elaborate expr
   other -> error $ "Unexpected expression: " <> show other
   where
     int = monoFromName "Int"
+    l --> r = MonoTy { tyCtor = "->", tyArgs = [l, r] }
 
 whileM :: Monad m => m Bool -> m a -> m ()
 whileM cond body = cond >>= bool (pure ()) (void body)
 
-solve :: (HasCallStack, Monad m) => Constraints -> m (TySubst, Constraints)
+solve :: MonadWriter [String] m => Constraints -> m (TySubst, Constraints)
 solve intialConstraints =
   (\(_, subst, residual) -> (subst, residual)) <$>
   flip execStateT (True, mempty @TySubst, intialConstraints) do
     whileM (zoom _1 $ get @Bool) do
       zoom _1 $ put False
-      constraints <- zoom _3 get
-      zoom _3 $ put []
+      constraints <- zoom _3 $ get <* put []
       for_ constraints \case
-        MonoTy{ tyCtor = ctor1, tyArgs = [] } := MonoTy{ tyCtor = ctor2, tyArgs = [] } | ctor1 == ctor2 ->
-          zoom _1 $ put True
-        MonoTy{ tyCtor, tyArgs = [] } := ty |
-          tyCtor `notElem` map (view #tyCtor) (Uniplate.universe ty) -> do
-          zoom _1 $ put True
-          zoom _2 $ modify (singletonTySubst tyCtor ty <>)
-        ty := var@MonoTy{ tyArgs = [] } -> do
-          zoom _1 $ put True
-          zoom _3 $ modify (var := ty :)
+        t1 := t2 -> runExceptT (unify t1 t2) >>= \case
+          Left error -> tell [error]
+          Right subst -> do
+            zoom _1 $ put True
+            zoom _2 $ modify (subst <>)
         other ->
           zoom _3 $ modify (other :)
 
-reportErrors :: MonadError [String] m => Constraints -> m ()
-reportErrors residuals
-  | null residuals = pure ()
-  | otherwise = throwError $ map show residuals
+unify :: MonadError String m => MonoTy -> MonoTy -> m TySubst
+unify = curry \case
+  (MonoTy{ tyCtor, tyArgs = [] }, ty) |
+    isVarCtor tyCtor, tyCtor `notElem` map (view #tyCtor) (Uniplate.universe ty) -> -- TODO uniplate
+    pure $ singletonTySubst tyCtor ty
+  (ty, var@MonoTy{ tyCtor, tyArgs = [] }) | isVarCtor tyCtor ->
+    unify var ty
+  (MonoTy{ tyCtor = ctor1, tyArgs = args1 }, MonoTy{ tyCtor = ctor2, tyArgs = args2 }) |
+    not (isVarCtor ctor1), not (isVarCtor ctor2),
+    ctor1 == ctor2, length args1 == length args2 ->
+    mconcat <$> zipWithM unify args1 args2
+  (t1, t2) -> throwError $ "Cannot unify " <> show t1 <> " and " <> show t2
+
+reportErrors :: MonadError [String] m => Constraints -> [String] -> m ()
+reportErrors residual errors
+  | null residual && null errors = pure ()
+  | otherwise = throwError $ errors <> map (("Cannot solve: " <>) . show) residual
 
 zonk :: (HasCallStack, Monad m) => Core -> TySubst -> m Core
 zonk core subst = case core of
   c@(Const _) -> pure c
   Plus l r -> Plus <$> zonk l subst <*> zonk r subst
   v@(Var _) -> pure v
+  App f arg -> do
+    f' <- zonk f subst
+    arg' <- zonk arg subst
+    pure $ App f' arg'
   TApp f monoTy -> do
     f' <- zonk f subst
     pure $ TApp f' (fmap (subst `appTySubst`) monoTy)
