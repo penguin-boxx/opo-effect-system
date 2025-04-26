@@ -27,13 +27,15 @@ data Core
   | App Core Core
   | TApp Core [MonoTy]
   -- ^ Apply to all arguments at once to avoid capturing.
-  | CtxApp Core Core -- todo make list?
-  | Lam VarName Core
-  | TLam [TyName] Core
-  | LetIn VarName Core Core
+  | WeakCtxApp Core [Ty]
+  -- ^ To replace with CtxApp or to generalize.
+  | CtxApp Core [Core] -- todo make list?
+  -- | Lam VarName Core
+  -- | TLam [TyName] Core
+  -- | LetIn VarName Core Core
 
 data Constraint
-  = CtxConstraint { witness :: VarName, opName :: OpName, opTy :: Ty }
+  = CtxConstraint { witness :: VarName, opTy :: Ty }
   | MonoTy := MonoTy
   | Constraints :=> Constraints
 
@@ -70,20 +72,24 @@ elaborate = \case
   Syntax.Var name -> asks (!? name) >>= \case
     Nothing -> (Var name,) <$> fresh @MonoTy
     Just Ty{ tyParams, effs, monoTy } -> do
-      tySubst <- forM tyParams \param -> (param,) <$> fresh @MonoTy
+      tySubst <- forM tyParams \param ->
+        (param,) <$> fresh @MonoTy
       let withTApp = Var name `TApp` map snd tySubst
-      let ty = mkTySubst tySubst `appTySubst` monoTy
-      ctxVars <- forM (Map.toList effs) \(opName, opTy) -> do
-        ctxName <- fresh @VarName
-        -- tell [CtxConstraint{ witness = ctxName, opName, opTy }]
-        pure $ Var ctxName
-      let withCtxApp = foldr CtxApp withTApp ctxVars
-      pure (withCtxApp, ty)
+      let instantiatedTy = mkTySubst tySubst `appTySubst` monoTy
+      let withWeakCtxApp = WeakCtxApp withTApp (Map.elems effs)
+      pure (withWeakCtxApp, instantiatedTy)
   f Syntax.:@ arg -> do
-    -- TODO generate
-    resTy <- fresh @MonoTy
     (f', fTy) <- elaborate f
+    f' <- case f' of
+      WeakCtxApp f' tys -> do
+        ctxVars <- forM tys \ty -> do
+          ctxName <- fresh @VarName
+          tell [CtxConstraint{ witness = ctxName, opTy = ty }]
+          pure $ Var ctxName
+        pure $ CtxApp f' ctxVars
+      f' -> pure f'
     (arg', argTy) <- elaborate arg
+    resTy <- fresh @MonoTy
     tell [fTy := argTy --> resTy]
     pure (App f' arg', resTy)
   Syntax.Ascription name ty expr ->
@@ -109,6 +115,7 @@ solve intialConstraints =
           Right subst -> do
             zoom _1 $ put True
             zoom _2 $ modify (subst <>)
+        CtxConstraint{} -> zoom _1 $ put True -- TODO
         other ->
           zoom _3 $ modify (other :)
 
@@ -142,8 +149,11 @@ zonk core subst = case core of
   TApp f monoTy -> do
     f' <- zonk f subst
     pure $ TApp f' (fmap (subst `appTySubst`) monoTy)
-  CtxApp f ctx -> CtxApp <$> zonk f subst <*> zonk ctx subst -- TODO
-  other -> error $ "Unsupported node: " <> show other
+  WeakCtxApp f tys -> do
+    f' <- zonk f subst
+    pure $ WeakCtxApp f' (over (each % #monoTy) (subst `appTySubst`) tys) -- TODO no poly supported
+  CtxApp f vars -> CtxApp <$> zonk f subst <*> mapM (`zonk` subst) vars -- TODO
+  -- other -> error $ "Unsupported node: " <> show other
 
 generalize :: Monad m => Core -> MonoTy -> m (Core, Ty)
 generalize core monoTy = pure (core, tyFromMono monoTy)
