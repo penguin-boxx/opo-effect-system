@@ -10,7 +10,7 @@ import Text.PrettyPrint.GenericPretty
 
 type TyName = String
 
-data MonoTy = MonoTy { tyCtor :: TyName, tyArgs :: [MonoTy] }
+data MonoTy = MonoTy { tyCtor :: TyName, tyArgs :: [Ty] }
   deriving (Eq, Data, Typeable)
 
 mkVar :: TyName -> MonoTy
@@ -22,7 +22,7 @@ monoFromName name = MonoTy { tyCtor = name, tyArgs = [] }
 isVarCtor :: TyName -> Bool
 isVarCtor = isLowerCase . head
 
-type Effs = Map OpName Ty
+type Effs = Map OpName MonoTy
 
 data Ty = Ty { tyParams :: [TyName], effs :: Effs, monoTy :: MonoTy }
   deriving (Eq, Data, Typeable)

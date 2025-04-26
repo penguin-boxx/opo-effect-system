@@ -12,3 +12,6 @@ type OpName = String
 instance (Out k, Out v) => Out (Map k v) where
   doc = doc . Map.toList
   docPrec = const doc
+
+class Apply f arg res | f arg -> res where
+  (@) :: f -> arg -> res

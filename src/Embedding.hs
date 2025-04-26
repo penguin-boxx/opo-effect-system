@@ -15,6 +15,7 @@ infixr 0 =.
 infixr 0 -->
 infixr 0 $$
 infixl 6 +.
+infixr 0 .:
 
 (=.) :: VarName -> Expr -> Expr -> Expr
 (=.) = LetIn
@@ -37,7 +38,7 @@ v = Var
 f :: TyName -> Ty -> Ty
 f name = over #tyParams (name :)
 
-ctx :: [(OpName, Ty)] -> Ty -> Ty
+ctx :: [(OpName, MonoTy)] -> Ty -> Ty
 ctx (Map.fromList -> ctx) = over #effs (ctx <>)
 
 withHandler :: (VarName, Expr) -> [OpHandler] -> Expr -> Expr
@@ -55,10 +56,10 @@ instance LongArrow (OpName, VarName, VarName) Expr OpHandler where
 instance LongArrow VarName Expr (VarName, Expr) where
   (-->) = (,)
 
-instance LongArrow MonoTy MonoTy MonoTy where
+instance LongArrow Ty Ty MonoTy where
   l --> r = MonoTy { tyCtor = "->", tyArgs = [l, r] }
 
-instance LongArrow MonoTy MonoTy Ty where
+instance LongArrow Ty Ty Ty where
   l --> r = tyFromMono $ MonoTy { tyCtor = "->", tyArgs = [l, r] }
 
 

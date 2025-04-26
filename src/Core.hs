@@ -26,18 +26,16 @@ data Core
   | Var VarName
   | App Core Core
   | TApp Core [MonoTy]
-  -- ^ Apply to all arguments at once to avoid capturing.
-  | WeakCtxApp Core [Ty]
-  -- ^ To replace with CtxApp or to generalize.
-  | CtxApp Core [Core] -- todo make list?
+  | WeakCtxApp Core [MonoTy]
+  | CtxApp Core [Core]
   -- | Lam VarName Core
   -- | TLam [TyName] Core
+  | CtxLam [VarName] Core
   -- | LetIn VarName Core Core
 
 data Constraint
-  = CtxConstraint { witness :: VarName, opTy :: Ty }
+  = CtxConstraint { witness :: VarName, opTy :: MonoTy }
   | MonoTy := MonoTy
-  | Constraints :=> Constraints
 
 infix 6 :=
 
@@ -49,7 +47,7 @@ infer :: (MonadError [String] m) => Syntax.Expr -> m (Core, Ty)
 infer expr = do
   ((core, resTy), constraints) <-
     runFreshT @MonoTy $ runFreshT @VarName $
-    flip runReaderT Map.empty $ runWriterT $
+    flip runReaderT Map.empty $ runWriterT $ modifyError (:[]) $
     elaborate expr
   ((subst, residuals), errors) <- runWriterT $ solve constraints
   reportErrors residuals errors
@@ -59,7 +57,7 @@ infer expr = do
 
 elaborate
   :: ( HasCallStack, MonadFresh MonoTy m, MonadFresh VarName m
-     , MonadWriter Constraints m, MonadReader TyContext m
+     , MonadWriter Constraints m, MonadReader TyContext m, MonadError String m
      )
   => Syntax.Expr -> m (Core, MonoTy)
 elaborate = \case
@@ -70,7 +68,7 @@ elaborate = \case
     tell [lTy := int, rTy := int]
     pure (Plus l' r', int)
   Syntax.Var name -> asks (!? name) >>= \case
-    Nothing -> (Var name,) <$> fresh @MonoTy
+    Nothing -> throwError $ "Unknown variable " <> name
     Just Ty{ tyParams, effs, monoTy } -> do
       tySubst <- forM tyParams \param ->
         (param,) <$> fresh @MonoTy
@@ -80,6 +78,11 @@ elaborate = \case
       pure (withWeakCtxApp, instantiatedTy)
   f Syntax.:@ arg -> do
     (f', fTy) <- elaborate f
+    (arg', argTy) <- case fTy of
+      MonoTy{ tyArgs = Ty{ effs } : _ } -> do
+        result <- local (<> fmap tyFromMono effs) $ elaborate arg
+        pure $ over _1 (CtxLam (Map.keys effs)) result
+      _ -> elaborate arg
     f' <- case f' of
       WeakCtxApp f' tys -> do
         ctxVars <- forM tys \ty -> do
@@ -88,9 +91,8 @@ elaborate = \case
           pure $ Var ctxName
         pure $ CtxApp f' ctxVars
       f' -> pure f'
-    (arg', argTy) <- elaborate arg
     resTy <- fresh @MonoTy
-    tell [fTy := argTy --> resTy]
+    tell [fTy := tyFromMono argTy --> tyFromMono resTy]
     pure (App f' arg', resTy)
   Syntax.Ascription name ty expr ->
     local (Map.insert name ty) $ elaborate expr
@@ -116,8 +118,8 @@ solve intialConstraints =
             zoom _1 $ put True
             zoom _2 $ modify (subst <>)
         CtxConstraint{} -> zoom _1 $ put True -- TODO
-        other ->
-          zoom _3 $ modify (other :)
+        -- other ->
+        --   zoom _3 $ modify (other :)
 
 unify :: MonadError String m => MonoTy -> MonoTy -> m TySubst
 unify = curry \case
@@ -129,7 +131,7 @@ unify = curry \case
   (MonoTy{ tyCtor = ctor1, tyArgs = args1 }, MonoTy{ tyCtor = ctor2, tyArgs = args2 }) |
     not (isVarCtor ctor1), not (isVarCtor ctor2),
     ctor1 == ctor2, length args1 == length args2 ->
-    mconcat <$> zipWithM unify args1 args2
+    mconcat <$> zipWithM unify (args1 ^.. each % #monoTy) (args2 ^.. each % #monoTy) -- TODO
   (t1, t2) -> throwError $ "Cannot unify " <> show t1 <> " and " <> show t2
 
 reportErrors :: MonadError [String] m => Constraints -> [String] -> m ()
@@ -151,8 +153,9 @@ zonk core subst = case core of
     pure $ TApp f' (fmap (subst `appTySubst`) monoTy)
   WeakCtxApp f tys -> do
     f' <- zonk f subst
-    pure $ WeakCtxApp f' (over (each % #monoTy) (subst `appTySubst`) tys) -- TODO no poly supported
+    pure $ WeakCtxApp f' (map (subst `appTySubst`) tys)
   CtxApp f vars -> CtxApp <$> zonk f subst <*> mapM (`zonk` subst) vars -- TODO
+  CtxLam names body -> CtxLam names <$> zonk body subst
   -- other -> error $ "Unsupported node: " <> show other
 
 generalize :: Monad m => Core -> MonoTy -> m (Core, Ty)
