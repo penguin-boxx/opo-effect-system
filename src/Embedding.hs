@@ -5,17 +5,17 @@ module Embedding where
 import Common
 import Syntax
 import Data.Proxy
-import Data.Map qualified as Map
+import Data.Set qualified as Set
 import Types
 import Optics
 import GHC.OverloadedLabels
 import GHC.TypeLits
 
 infixr 0 =.
-infixr 0 -->
-infixr 0 $$
-infixl 6 +.
-infixr 0 .:
+-- infixr 0 -->
+-- infixr 0 $$
+-- infixl 6 +.
+infixl 9 @
 
 (=.) :: VarName -> Expr -> Expr -> Expr
 (=.) = LetIn
@@ -29,48 +29,49 @@ c = Const
 (+.) :: Expr -> Expr -> Expr
 (+.) = Plus
 
-v :: VarName -> Expr
-v = Var
+(@) :: Expr -> Expr -> Expr
+(@) = App
 
-(.:) :: VarName -> Ty -> Expr -> Expr
-(.:) = Ascription
+-- \forall
+-- f :: [TyName] -> TySchema -> TySchema
+-- f name = over #params (name :)
 
-f :: TyName -> Ty -> Ty
-f name = over #tyParams (name :)
+-- -- ctx :: [MonoTy] -> TySchema -> TySchema
+-- -- ctx (Set.fromList -> ctx) = over #effs (ctx <>)
 
-ctx :: [(OpName, MonoTy)] -> Ty -> Ty
-ctx (Map.fromList -> ctx) = over #effs (ctx <>)
+lam :: [VarName] -> Expr -> Expr
+lam names body = foldr (Lam []) body names
+
+clam :: [VarName] -> [VarName] -> Expr -> Expr
+clam ctx names body = set (_Lam % _1) ctx $ lam names body
 
 withHandler :: (VarName, Expr) -> [OpHandler] -> Expr -> Expr
-withHandler (pureName, pureBody) hOps hScope =
-  Handle{ hPure = PureHandler{ pureName, pureBody }, hOps, hScope }
+withHandler (returnName, returnBody) ops scope =
+  Handle{ return = Lam [] returnName returnBody, ops, scope }
 
 
 class LongArrow a b c | c -> a b where
   (-->) :: a -> b -> c
 
 instance LongArrow (OpName, VarName, VarName) Expr OpHandler where
-  (opName, paramName, kName) --> opBody =
-    OpHandler{ opName, paramName, kName, opBody }
+  (name, paramName, kName) --> opBody =
+    OpHandler { name, body = Lam [] paramName $ Lam [] kName opBody }
 
-instance LongArrow VarName Expr (VarName, Expr) where
-  (-->) = (,)
+instance LongArrow EffTy EffTy EffTy where
+  l --> r = EffTy { effs = [], from = l, to = r }
 
-instance LongArrow Ty Ty MonoTy where
-  l --> r = MonoTy { tyCtor = "->", tyArgs = [l, r] }
-
-instance LongArrow Ty Ty Ty where
-  l --> r = tyFromMono $ MonoTy { tyCtor = "->", tyArgs = [l, r] }
+instance LongArrow EffTy EffTy TySchema where
+  l --> r = tySchemaFromEff $ EffTy { effs = [], from = l, to = r }
 
 
 instance KnownSymbol name => IsLabel name String where
   fromLabel = symbolVal $ Proxy @name
 
 instance KnownSymbol name => IsLabel name Expr where
-  fromLabel = v $ symbolVal $ Proxy @name
+  fromLabel = Var $ symbolVal $ Proxy @name
 
 instance KnownSymbol name => IsLabel name MonoTy where
   fromLabel = mkVar $ symbolVal $ Proxy @name
 
-instance KnownSymbol name => IsLabel name Ty where
-  fromLabel = tyFromMono $ fromLabel @name
+instance KnownSymbol name => IsLabel name TySchema where
+  fromLabel = tySchemaFromMono $ fromLabel @name
