@@ -9,7 +9,7 @@ data Expr
   = Const Int | Plus Expr Expr -- just to debug semantics
   | Var VarName
   | App Expr Expr
-  | CtxApp Expr [Expr] -- CORE
+  | CtxApp Expr [VarName] -- CORE
   | Lam { ctxParams :: [VarName], param :: VarName, body :: Expr }
   | Ctor VarName
   | Match { scrutinee :: Expr, cases :: [Branch] }

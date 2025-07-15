@@ -34,6 +34,15 @@ inferExpr source = case source of
     unify lTy int >>= tell
     unify rTy int >>= tell
     pure (Plus l' r', int)
+  App f arg -> do
+    (f', fTy) <- inferExpr f
+    (effs, expectedTy, resTy) <- case fTy of
+      NoEff monoTy -> throwError $ "Expected function, got " <> show monoTy
+      EffTy { effs, from, to } -> (effs, from, to)
+    (arg', argTy) <- inferExpr arg
+    unify expectedTy argTy >>= tell -- TODO subeffecting
+    implicits <- extractCtx effs -- TODO в контексте могут быть унификационные переменные?
+    pure (CtxApp implicits f' arg', resTy)
   other -> error $ "Unsupported " <> show other
   where
     int = effTyFromName "Int"
@@ -46,6 +55,11 @@ infer expr = do
     inferExpr expr
   pure res
 
+extractCtxFirst :: MonadReader TyContext m => VarName -> m EffTy
+extractCtxFirst = undefined
+
+extractCtx :: MonadReader TyContext m => Effs -> [VarName]
+extractCtx = undefined
 
 -- data Constraint
 --   = CtxConstraint { witness :: VarName, opTy :: MonoTy }

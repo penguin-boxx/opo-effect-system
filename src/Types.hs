@@ -6,12 +6,10 @@ import Data.Char
 import Data.Typeable
 import Text.PrettyPrint.GenericPretty
 
-
 type TyName = String
 
 isVarCtor :: TyName -> Bool
 isVarCtor = isLowerCase . head
-
 
 data MonoTy = MonoTy { ctor :: TyName, args :: [MonoTy] }
   deriving (Eq, Ord, Data, Typeable)
@@ -21,7 +19,6 @@ mkVar = monoFromName
 
 monoFromName :: TyName -> MonoTy
 monoFromName name = MonoTy { ctor = name, args = [] }
-
 
 type Effs = [MonoTy]
 
@@ -33,7 +30,6 @@ data EffTy
 effTyFromName :: TyName -> EffTy
 effTyFromName = NoEff . monoFromName
 
-
 data TySchema = TySchema { params :: [TyName], ty :: EffTy }
   deriving (Eq, Data, Typeable)
 
@@ -42,7 +38,6 @@ tySchemaFromMono monoTy = TySchema { params = [], ty = NoEff monoTy }
 
 tySchemaFromEff :: EffTy -> TySchema
 tySchemaFromEff effTy = TySchema { params = [], ty = effTy }
-
 
 deriving stock instance Generic MonoTy
 instance Out MonoTy
