@@ -15,28 +15,28 @@ import Text.PrettyPrint qualified as PP
 import Text.PrettyPrint.GenericPretty
 import Debug.Trace
 
-type Context = Map VarName Value
+-- type Context = Map VarName Value
 
-data Value
-  = Number Int
-  | Obj VarName [Value]
-  | Closure { argName :: VarName, closBody :: Expr, closCtx :: Context }
-  | Continuation { kBody :: K, kCtx :: Context }
-  deriving Eq
+-- data Value
+--   = Number Int
+--   | Obj VarName [Value]
+--   | Closure { argName :: VarName, closBody :: Expr, closCtx :: Context }
+--   | Continuation { kBody :: K, kCtx :: Context }
+--   deriving Eq
 
-data Frame
-  = LApp Expr
-  | RApp Value
-  | KMatch [Branch]
-  | KHandle
-    { return :: Expr
-    , ops :: [OpHandler]
-    , ctx :: Context
-    }
-  | EndScope Context
-  deriving stock Eq
+-- data Frame
+--   = LApp Expr
+--   | RApp Value
+--   | KMatch [Branch]
+--   | KHandle
+--     { return :: Expr
+--     , ops :: [OpHandler]
+--     , ctx :: Context
+--     }
+--   | EndScope Context
+--   deriving stock Eq
 
-type K = [Frame]
+-- type K = [Frame]
 
 -- evalE :: HasCallStack => Context -> Expr -> K -> Value
 -- evalE !ctx !expr !k =
@@ -116,11 +116,11 @@ type K = [Frame]
 -- eval :: HasCallStack => Expr -> Value
 -- eval expr = evalE Map.empty expr []
 
-deriving stock instance Generic Value
-instance Out Value
-instance Show Value where
-  show = pretty
-deriving stock instance Generic Frame
-instance Out Frame
-instance Show Frame where
-  show = pretty
+-- deriving stock instance Generic Value
+-- instance Out Value
+-- instance Show Value where
+--   show = pretty
+-- deriving stock instance Generic Frame
+-- instance Out Frame
+-- instance Show Frame where
+--   show = pretty

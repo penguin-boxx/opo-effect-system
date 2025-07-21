@@ -25,12 +25,13 @@ source-repository head
 library
   exposed-modules:
       Common
-      Core
       Embedding
       Semantics
       Stdlib
+      Subst
       Syntax
       Types
+      Typing
   other-modules:
       Paths_colang
   autogen-modules:

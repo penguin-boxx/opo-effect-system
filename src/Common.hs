@@ -11,13 +11,11 @@ import Optics
 
 type VarName = String
 type OpName = String
+type CtorName = String
 
 instance (Out k, Out v) => Out (Map k v) where
   doc = doc . Map.toList
   docPrec = const doc
-
-class Apply f arg res | f arg -> res where
-  (@) :: f -> arg -> res
 
 universe :: Uniplate a => Getter a [a]
 universe = to Uniplate.universe
