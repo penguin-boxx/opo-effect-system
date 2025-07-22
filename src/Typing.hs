@@ -36,6 +36,20 @@ inferExpr effCtx tyCtx = \case
     pure $ emptyTySchema $ TyFun
       { ctx = toListOf (each % #ty) ctxParams, lt = capturingLt
       , args = toListOf (each % #ty) params, res }
+  App { callee, ctxArgs, args } -> do
+    (expectedCtxArgs, expectedArgs, res) <- inferExpr effCtx tyCtx callee >>= ensureMonoTy >>= \case
+      TyFun { ctx, args, res } -> pure (ctx, args, res)
+      other -> throwError $ "Expected function, got " <> show other
+    actualCtxArgs <- mapM (ensureMonoTy <=< inferExpr effCtx tyCtx) ctxArgs
+    actualArgs <- mapM (ensureMonoTy <=< inferExpr effCtx tyCtx) args
+    unless (length actualCtxArgs == length expectedCtxArgs) $
+      throwError "Ctx arguments number mismatch"
+    unless (length actualArgs == length expectedArgs) $
+      throwError "Arguments number mismatch"
+    forM_ (zip (actualCtxArgs <> actualArgs) (expectedCtxArgs <> expectedArgs)) \(actual, expected) ->
+      unless (subTyOf tyCtx actual expected) $
+        throwError $ "Type mismatch: " <> show actual <> " is not a subtype of " <> show expected
+    pure $ emptyTySchema res
   unsupported -> error $ "Unsupported construct: " <> show unsupported
 
 checkBounds :: MonadError String m => TyCtx -> [MonoTy] -> [MonoTy] -> m ()
