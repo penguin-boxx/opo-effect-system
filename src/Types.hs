@@ -16,7 +16,7 @@ data Lt
   | LtLocal
   | LtFree
   | LtIntersect [Lt]
-  deriving (Eq, Data, Typeable)
+  deriving (Eq, Ord, Data, Typeable)
 
 type EffRow = [MonoTy]
 
@@ -24,28 +24,28 @@ data MonoTy
   = TyVar TyName
   | TyCtor { ctor :: TyName, lt :: Lt, args :: [MonoTy] }
   | TyFun { ctx :: EffRow, lt :: Lt, args :: [MonoTy], res :: MonoTy }
-  deriving stock (Eq, Data, Typeable)
+  deriving stock (Eq, Ord, Data, Typeable)
 
 data TyParam = TyParam { name :: TyName, bound :: MonoTy }
-  deriving stock (Eq, Data, Typeable)
+  deriving stock (Eq, Ord, Data, Typeable)
 
 data TySchema = TySchema
   { ltParams :: [LtName]
   , tyParams :: [TyParam]
   , ty :: MonoTy
   }
-  deriving stock (Eq, Data, Typeable)
+  deriving stock (Eq, Ord, Data, Typeable)
 
 data TyCtxEntry
   = TyCtxVar { name :: VarName, tySchema :: TySchema }
   | TyCtxCap { name :: VarName, monoTy :: MonoTy }
   | TyCtxTy { name :: TyName, bound :: MonoTy }
-  deriving stock (Eq, Data, Typeable)
+  deriving stock (Eq, Ord, Data, Typeable)
 
 type TyCtx = [TyCtxEntry]
 
 data OpSig = OpSig { tyParams :: [TyParam], args :: [MonoTy], res :: MonoTy }
-  deriving stock (Eq, Data, Typeable)
+  deriving stock (Eq, Ord, Data, Typeable)
 
 type EffSig = Map OpName OpSig
 
@@ -55,7 +55,7 @@ data EffCtxEntry = EffCtxEntry
   , sig :: EffSig
   , tyCtor :: TyName
   }
-  deriving stock (Eq, Data, Typeable)
+  deriving stock (Eq, Ord, Data, Typeable)
 
 type EffCtx = [EffCtxEntry]
 
