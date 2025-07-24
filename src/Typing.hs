@@ -60,7 +60,23 @@ checkBounds tyCtx args bounds = do
     throwError "Type argument do not satisfy bound"
 
 subTyOf :: TyCtx -> MonoTy -> MonoTy -> Bool
-subTyOf _ _ _ = True -- TODO
+subTyOf tyCtx = curry \case
+  (TyVar name1, TyVar name2) -> name1 == name2
+  (TyCtor { ctor = ctor1, lt = lt1, args = args1 }, TyCtor { ctor = ctor2, lt = lt2, args = args2 }) ->
+    ctor1 `subTyCtorOf` ctor2 && lt1 `subLtOf` lt2 && args1 == args2
+  (TyFun { lt = lt1, args = args1, res = res1 }, TyFun { lt = lt2, args = args2, res = res2}) ->
+    lt1 `subLtOf` lt2 && length args1 == length args2 && and (zipWith (subTyOf tyCtx) args2 args1) && subTyOf tyCtx res1 res2 -- TODO ctx
+  _ -> False
+
+subTyCtorOf :: CtorName -> CtorName -> Bool
+subTyCtorOf ctor1 ctor2 = ctor1 == ctor2 || ctor1 == "Any"
+
+subLtOf :: Lt -> Lt -> Bool
+subLtOf = curry \case
+  (LtVar name1, LtVar name2) -> name1 == name2
+  (LtIntersect lts, lt) -> all (`subLtOf` lt) lts
+  (lt, LtIntersect lts) -> any (lt `subLtOf`) lts
+  (lt1, lt2) -> lt1 == LtFree || lt2 == LtLocal
 
 tyCtxLookupSchema :: MonadError String m => TyCtx -> VarName -> m TySchema
 tyCtxLookupSchema tyCtx keyName = case tyCtx of
