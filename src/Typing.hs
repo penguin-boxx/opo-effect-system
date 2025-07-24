@@ -83,6 +83,13 @@ tyCtxLookupSchema tyCtx keyName = case tyCtx of
   [] -> throwError $ "Name not found " <> keyName
   TyCtxVar { name, tySchema } : _ | name == keyName -> pure tySchema
   TyCtxCap { name, monoTy } : _ | name == keyName -> pure (emptyTySchema monoTy)
+  TyCtxCtor { name, ltParams, tyParams, args, res } : _ | name == keyName -> do
+    ltArgs <- concat <$> mapM (fmap Set.toList . lifetimes tyCtx PositivePos . emptyTySchema) args
+    let lt = LtIntersect $ fmap LtVar ltParams <> ltArgs
+    pure $ TySchema
+      { ltParams, tyParams
+      , ty = TyFun { ctx = [], lt, args, res }
+      }
   _ : rest -> rest `tyCtxLookupSchema` keyName
 
 tyCtxLookupBound :: MonadError String m => TyCtx -> TyName -> m MonoTy

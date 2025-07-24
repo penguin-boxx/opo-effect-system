@@ -40,6 +40,11 @@ data TyCtxEntry
   = TyCtxVar { name :: VarName, tySchema :: TySchema }
   | TyCtxCap { name :: VarName, monoTy :: MonoTy }
   | TyCtxTy { name :: TyName, bound :: MonoTy }
+  | TyCtxCtor
+    { name :: CtorName
+    , ltParams :: [LtName], tyParams :: [TyParam]
+    , args :: [MonoTy], res :: MonoTy
+    }
   deriving stock (Eq, Ord, Data, Typeable)
 
 type TyCtx = [TyCtxEntry]
