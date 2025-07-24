@@ -20,13 +20,19 @@ data Lt
 
 type EffRow = [MonoTy]
 
-data MonoTy
-  = TyVar TyName
-  | TyCtor { ctor :: TyName, lt :: Lt, args :: [MonoTy] }
-  | TyFun { ctx :: EffRow, lt :: Lt, args :: [MonoTy], res :: MonoTy }
+data MonoTy = TyVar TyName | TyCtor TyCtor | TyFun TyFun
   deriving stock (Eq, Ord, Data, Typeable)
 
-data TyParam = TyParam { name :: TyName, bound :: MonoTy }
+data TyCtor = MkTyCtor { ctor :: TyName, lt :: Lt, args :: [MonoTy] }
+  deriving stock (Eq, Ord, Data, Typeable)
+
+data TyFun = MkTyFun
+  { ctx :: EffRow, lt :: Lt
+  , args :: [MonoTy], res :: MonoTy
+  }
+  deriving stock (Eq, Ord, Data, Typeable)
+
+data TyParam = MkTyParam { name :: TyName, bound :: MonoTy }
   deriving stock (Eq, Ord, Data, Typeable)
 
 data TySchema = TySchema
@@ -40,16 +46,19 @@ data TyCtxEntry
   = TyCtxVar { name :: VarName, tySchema :: TySchema }
   | TyCtxCap { name :: VarName, monoTy :: MonoTy }
   | TyCtxTy { name :: TyName, bound :: MonoTy }
-  | TyCtxCtor
-    { name :: CtorName
-    , ltParams :: [LtName], tyParams :: [TyParam]
-    , args :: [MonoTy], res :: MonoTy
-    }
+  | TyCtxCtor TyCtxCtor
+  deriving stock (Eq, Ord, Data, Typeable)
+
+data TyCtxCtor = MkTyCtxCtor
+  { name :: CtorName
+  , ltParams :: [LtName], tyParams :: [TyParam]
+  , args :: [MonoTy], res :: TyCtor
+  }
   deriving stock (Eq, Ord, Data, Typeable)
 
 type TyCtx = [TyCtxEntry]
 
-data OpSig = OpSig { tyParams :: [TyParam], args :: [MonoTy], res :: MonoTy }
+data OpSig = MkOpSig { tyParams :: [TyParam], args :: [MonoTy], res :: MonoTy }
   deriving stock (Eq, Ord, Data, Typeable)
 
 type EffSig = Map OpName OpSig
@@ -77,6 +86,14 @@ deriving stock instance Generic MonoTy
 instance Out MonoTy
 instance Show MonoTy where
   show = pretty
+deriving stock instance Generic TyCtor
+instance Out TyCtor
+instance Show TyCtor where
+  show = pretty
+deriving stock instance Generic TyFun
+instance Out TyFun
+instance Show TyFun where
+  show = pretty
 deriving stock instance Generic TyParam
 instance Out TyParam
 instance Show TyParam where
@@ -88,6 +105,10 @@ instance Show TySchema where
 deriving stock instance Generic TyCtxEntry
 instance Out TyCtxEntry
 instance Show TyCtxEntry where
+  show = pretty
+deriving stock instance Generic TyCtxCtor
+instance Out TyCtxCtor
+instance Show TyCtxCtor where
   show = pretty
 deriving stock instance Generic OpSig
 instance Out OpSig
