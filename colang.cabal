@@ -25,7 +25,10 @@ source-repository head
 library
   exposed-modules:
       Common
+      Driver
       Embedding
+      Lexer
+      Parser
       Semantics
       Stdlib
       Subst
@@ -44,6 +47,7 @@ library
       BlockArguments
       ConstraintKinds
       DataKinds
+      DeriveAnyClass
       DeriveDataTypeable
       DeriveFoldable
       DeriveFunctor
@@ -83,13 +87,14 @@ library
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -Wno-unused-do-bind
   build-depends:
       GenericPretty
     , base >=4.7 && <5
     , containers
     , mtl
     , optics
+    , parsec
     , pretty
     , random
     , uniplate
@@ -109,6 +114,7 @@ executable colang-exe
       BlockArguments
       ConstraintKinds
       DataKinds
+      DeriveAnyClass
       DeriveDataTypeable
       DeriveFoldable
       DeriveFunctor
@@ -148,7 +154,7 @@ executable colang-exe
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -Wno-unused-do-bind -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       GenericPretty
     , base >=4.7 && <5
@@ -156,6 +162,7 @@ executable colang-exe
     , containers
     , mtl
     , optics
+    , parsec
     , pretty
     , random
     , uniplate
@@ -176,6 +183,7 @@ test-suite colang-test
       BlockArguments
       ConstraintKinds
       DataKinds
+      DeriveAnyClass
       DeriveDataTypeable
       DeriveFoldable
       DeriveFunctor
@@ -215,7 +223,7 @@ test-suite colang-test
       TypeOperators
       TypeSynonymInstances
       ViewPatterns
-  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -threaded -rtsopts -with-rtsopts=-N -Wno-orphans -Wno-type-defaults
+  ghc-options: -Wall -Wno-unrecognised-pragmas -Wno-unused-imports -Wno-noncanonical-monoid-instances -Wno-noncanonical-monad-instances -Wno-name-shadowing -Wno-unused-do-bind -threaded -rtsopts -with-rtsopts=-N -Wno-orphans -Wno-type-defaults
   build-depends:
       GenericPretty
     , HUnit
@@ -227,6 +235,7 @@ test-suite colang-test
     , generic-random
     , mtl
     , optics
+    , parsec
     , pretty
     , quickcheck-classes-base
     , random

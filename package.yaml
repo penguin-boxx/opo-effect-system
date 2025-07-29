@@ -27,6 +27,7 @@ dependencies:
   - mtl
   - optics
   - uniplate
+  - parsec
 
 default-extensions:
   - AllowAmbiguousTypes
@@ -34,6 +35,7 @@ default-extensions:
   - BlockArguments
   - ConstraintKinds
   - DataKinds
+  - DeriveAnyClass
   - DeriveDataTypeable
   - DeriveFoldable
   - DeriveFunctor
@@ -81,6 +83,7 @@ ghc-options:
   - -Wno-noncanonical-monoid-instances # can be emitted by macro-generated code
   - -Wno-noncanonical-monad-instances # can be emitted by macro-generated code
   - -Wno-name-shadowing # just very inconvenient with helper functions
+  - -Wno-unused-do-bind
 
 library:
   source-dirs: src
