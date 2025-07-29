@@ -30,7 +30,6 @@ library
       Lexer
       Parser
       Semantics
-      Stdlib
       Subst
       Syntax
       Types

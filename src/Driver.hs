@@ -16,9 +16,10 @@ instance RunSyntaxAnalysis Expr where
 instance RunSyntaxAnalysis MonoTy where
   runSyntaxAnalisys = report . parse Parser.monoTy "" . tokenize
 
+instance RunSyntaxAnalysis Prog where
+  runSyntaxAnalisys = report . parse Parser.prog "" . tokenize
+
 report :: Either ParseError a -> a
 report = \case
   Left err -> error $ show err
   Right res -> res
-
-

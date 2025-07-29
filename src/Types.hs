@@ -26,7 +26,7 @@ data MonoTy = TyVar TyName | TyCtor TyCtor | TyFun TyFun
   deriving anyclass Out
   deriving Show via OutShow MonoTy
 
-data TyCtor = MkTyCtor { name :: CtorName, lt :: Lt, args :: [MonoTy] }
+data TyCtor = MkTyCtor { name :: TyName, lt :: Lt, args :: [MonoTy] }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
   deriving Show via OutShow TyCtor
@@ -48,7 +48,7 @@ data TyParam = MkTyParam { name :: TyName, bound :: MonoTy }
   deriving anyclass Out
   deriving Show via OutShow TyParam
 
-data TySchema = TySchema
+data TySchema = MkTySchema
   { ltParams :: [LtName]
   , tyParams :: [TyParam]
   , ty :: MonoTy
@@ -56,6 +56,8 @@ data TySchema = TySchema
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
   deriving Show via OutShow TySchema
+
+type TyCtx = [TyCtxEntry]
 
 data TyCtxEntry
   = TyCtxVar TyCtxVar
@@ -85,14 +87,26 @@ data TyCtxCtor = MkTyCtxCtor
   { name :: CtorName
   , ltParams :: [LtName]
   , tyParams :: [TyParam]
-  , args :: [MonoTy]
+  , params :: [MonoTy]
   , res :: TyCtor
   }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
   deriving Show via OutShow TyCtxCtor
 
-type TyCtx = [TyCtxEntry]
+type EffCtx = [EffCtxEntry]
+
+data EffCtxEntry = EffCtxEntry
+  { capCtor :: CtorName
+  , tyParams :: [TyName]
+  , sig :: EffSig
+  , tyCtor :: TyName
+  }
+  deriving stock (Eq, Ord, Data, Typeable, Generic)
+  deriving anyclass Out
+  deriving Show via OutShow EffCtxEntry
+
+type EffSig = Map OpName OpSig
 
 data OpSig = MkOpSig
   { tyParams :: [TyParam]
@@ -103,20 +117,12 @@ data OpSig = MkOpSig
   deriving anyclass Out
   deriving Show via OutShow OpSig
 
-type EffSig = Map OpName OpSig
-
-data EffCtxEntry = EffCtxEntry
-  { capCtor :: TyName
-  , tyParams :: [TyName]
-  , sig :: EffSig
-  , tyCtor :: TyName
-  }
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow EffCtxEntry
-
-type EffCtx = [EffCtxEntry]
-
-
 emptyTySchema :: MonoTy -> TySchema
-emptyTySchema = TySchema [] []
+emptyTySchema = MkTySchema [] []
+
+class Top ty where
+  top :: ty
+instance Top TyCtor where
+  top = MkTyCtor { name = "Any", lt = LtLocal, args = [] }
+instance Top MonoTy where
+  top = TyCtor top

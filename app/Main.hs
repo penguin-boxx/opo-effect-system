@@ -1,49 +1,46 @@
 module Main where
 
+import Common
+import Driver
 import Syntax
 import Semantics
 import Types
 import Typing
-import Stdlib
+
 import Control.Monad
 import Control.Monad.Except
+import Data.Maybe
+import Data.List qualified as List
+import Data.Set qualified as Set
+import System.Environment
+import Optics
 
 main :: IO ()
-main = do
---   tapp
---   lam
---   app
-  undefined
-
--- tapp :: IO ()
--- tapp = do
---   let effCtx = []
---   let tyCtx = [TyCtxVar "id" $ TySchema ["l"]
---         [TyParam "a" $ TyCtor "Any" LtLocal []] $
---         TyFun [] (LtVar "l") [TyVar "a"] (TyVar "a")]
---   let expr = TApp (Var "id") [LtLocal] [TyCtor "File" LtLocal []]
---   print $ runExcept $ inferExpr effCtx tyCtx expr
-
--- lam :: IO ()
--- lam = do
---   let effCtx = []
---   let tyCtx = [TyCtxVar "id" $ TySchema ["l"]
---         [TyParam "a" $ TyCtor "Any" LtLocal []] $
---         TyFun [] (LtVar "l") [TyVar "a"] (TyVar "a")]
---   let expr = Lam
---         [Param "io" $ TyCtor "IO" LtLocal []]
---         [Param "x" $ TyCtor "Int" LtFree []] $
---         TApp (Var "x") [] []
---   print $ runExcept $ inferExpr effCtx tyCtx expr
-
--- app :: IO ()
--- app = do
---   let effCtx = []
---   let tyCtx = [TyCtxVar "id" $ TySchema ["l"]
---         [TyParam "a" $ TyCtor "Any" LtLocal []] $
---         TyFun [] (LtVar "l") [TyVar "a"] (TyVar "a")]
---   let expr = Lam
---         [Param "io" $ TyCtor "IO" LtLocal []]
---         [Param "x" $ TyCtor "Int" LtFree []] $
---         App (TApp (Var "id") [LtFree] [TyCtor "Int" LtFree []]) [] [TApp (Var "x") [] []]
---   print $ runExcept $ inferExpr effCtx tyCtx expr
+main = getArgs >>= \case
+  ["ast", fileName] -> do
+    prog :: Prog <- runSyntaxAnalisys <$> readFile fileName
+    forM_ prog print
+  ["type", fileName, target] -> do
+    prog <- runSyntaxAnalisys <$> readFile fileName
+    let tyCtx =
+          [ TyCtxCtor MkTyCtxCtor
+            { name = ctorName
+            , ltParams
+            , tyParams = [MkTyParam { name, bound = top } | name <- tyParams]
+            , params
+            , res = MkTyCtor
+              { name = tyName
+              , lt = LtIntersect $ fmap LtVar ltParams
+              , args = TyVar <$> tyParams
+              }
+            }
+          | DataDecl MkDataDecl { tyName, tyParams, dataCtors } <- prog
+          , MkDataCtor { ctorName, ltParams, params } <- dataCtors
+          ]
+    let expr = head [body | VarDecl MkVarDecl { name, body } <- prog, name == target]
+    let ty = runExcept $ inferExpr [] tyCtx expr
+    case ty of
+      Left err -> putStrLn $ "Type error: " <> show err
+      Right ty -> putStrLn $ "Type: " <> show ty
+    undefined
+  _ -> putStrLn "Unknown command"

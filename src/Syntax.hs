@@ -8,33 +8,6 @@ import Data.Typeable
 import Text.PrettyPrint.GenericPretty
 import Optics
 
--- Delimited continuation marker.
-type Marker = Int
-
-data HandlerEntry = HandlerEntry
-  { opName :: OpName
-  , body :: Expr
-  }
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow HandlerEntry
-
-type Handler = [HandlerEntry]
-
-data Branch = MkBranch
-  { ctorName :: CtorName
-  , varPatterns :: [VarName]
-  , body :: Expr
-  }
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow Branch
-
-data Param = Param { name :: VarName, ty :: MonoTy }
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow Param
-
 data Expr
   = Const Int      -- just to debug semantics
   | Plus Expr Expr -- just to debug semantics
@@ -88,6 +61,11 @@ data Lam = MkLam { ctxParams :: [Param], params :: [Param], body :: Expr }
   deriving anyclass Out
   deriving Show via OutShow Lam
 
+data Param = MkParam { name :: VarName, ty :: MonoTy }
+  deriving stock (Eq, Ord, Data, Typeable, Generic)
+  deriving anyclass Out
+  deriving Show via OutShow Param
+
 data App = MkApp { callee :: Expr, ctxArgs :: [Expr], args :: [Expr] }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
@@ -97,6 +75,15 @@ data Match = MkMatch { scrutinee :: Expr, branches :: [Branch] }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
   deriving Show via OutShow Match
+
+data Branch = MkBranch
+  { ctorName :: CtorName
+  , varPatterns :: [VarName]
+  , body :: Expr
+  }
+  deriving stock (Eq, Ord, Data, Typeable, Generic)
+  deriving anyclass Out
+  deriving Show via OutShow Branch
 
 data Perform = MkPerform
   { opName :: OpName
@@ -123,10 +110,18 @@ data RtHandler = MkRtHandler { marker :: Marker, body :: Expr }
   deriving anyclass Out
   deriving Show via OutShow RtHandler
 
-data DataCtor = DataCtor { name :: CtorName, params :: [MonoTy] }
+-- Delimited continuation marker.
+type Marker = Int
+
+data HandlerEntry = MkHandlerEntry
+  { opName :: OpName
+  , body :: Expr
+  }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
-  deriving Show via OutShow DataCtor
+  deriving Show via OutShow HandlerEntry
+
+type Handler = [HandlerEntry]
 
 data Decl
   = DataDecl DataDecl
@@ -138,7 +133,6 @@ data Decl
 
 data DataDecl = MkDataDecl
   { tyName :: TyName
-  , ltParams :: [LtName]
   , tyParams :: [TyName]
   , dataCtors :: [DataCtor]
   }
@@ -146,10 +140,19 @@ data DataDecl = MkDataDecl
   deriving anyclass Out
   deriving Show via OutShow DataDecl
 
+data DataCtor = MkDataCtor
+  { ctorName :: CtorName
+  , ltParams :: [LtName]
+  , params :: [MonoTy]
+  }
+  deriving stock (Eq, Ord, Data, Typeable, Generic)
+  deriving anyclass Out
+  deriving Show via OutShow DataCtor
+
 data EffDecl = MkEffDecl
   { effName :: TyName
   , tyParams :: [TyName]
-  , ops :: [TySchema]
+  , ops :: EffSig
   }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
@@ -157,7 +160,6 @@ data EffDecl = MkEffDecl
 
 data VarDecl = MkVarDecl
   { name :: VarName
-  , ty :: TySchema
   , body :: Expr
   }
   deriving stock (Eq, Ord, Data, Typeable, Generic)

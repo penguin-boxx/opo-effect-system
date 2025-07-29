@@ -13,7 +13,7 @@ tokenize = concatMap (splitBySelector selector) . words
       | Just prefix <- List.find (`List.isPrefixOf` s) symbols = prefix
       | c:_ <- s, isDelimiter c = [c]
       | otherwise = []
-    symbols = ["->", "<:"]
+    symbols = ["->", "<:", "\\\\"]
     delimiters = [Char.isMark, Char.isPunctuation, Char.isSymbol]
     isDelimiter c = any ($ c) delimiters
 

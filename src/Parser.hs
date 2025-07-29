@@ -7,6 +7,7 @@ import Lexer
 
 import Control.Applicative (some)
 import Data.Set qualified as Set
+import Data.Map qualified as Map
 import Text.Parsec
 import Text.Parsec.Pos
 
@@ -39,7 +40,7 @@ notKeyword p = p >>= \t ->
   else
     pure t
   where
-    keywords = Set.fromList ["effect", "fun", "match", "case", "local", "free", "scoped"]
+    keywords = Set.fromList ["effect", "fun", "op", "match", "case", "local", "free", "scoped"]
 
 inParens :: Parser a -> Parser a
 inParens = between (tok "(") (tok ")")
@@ -113,6 +114,16 @@ tyParam =
     (TyCtor MkTyCtor { name = "Any", lt = LtLocal, args = [] })
     (tok "<:" *> monoTy)
 
+tySchema :: Parser TySchema
+tySchema = do
+  tok "<"
+  ltParams <- list (tok ",") $ identifier lower
+  tok ";"
+  tyParams <- list (tok ",") tyParam
+  tok ">"
+  ty <- monoTy
+  pure MkTySchema { ltParams, tyParams, ty }
+
 atom :: Parser Expr
 atom =
   inParens expr <|>
@@ -167,6 +178,7 @@ lam = do
   ctxParams <- option [] do
     tok "context"
     inParens $ list (tok ",") param
+  tok "\\"
   params <- inParens $ list (tok ",") param
   tok "->"
   body <- expr
@@ -177,7 +189,7 @@ param = do
   name <- identifier lower
   tok ":"
   ty <- monoTy
-  pure Param { name, ty }
+  pure MkParam { name, ty }
 
 app :: Parser App
 app = do
@@ -205,3 +217,54 @@ branch = do
   tok "->"
   body <- expr
   pure MkBranch { ctorName, varPatterns, body }
+
+decl :: Parser Decl
+decl =
+  DataDecl <$> dataDecl <|>
+  EffDecl <$> effDecl <|>
+  VarDecl <$> varDecl
+
+dataDecl :: Parser DataDecl
+dataDecl = do
+  tok "data"
+  tyName <- identifier upper
+  tyParams <- option [] $ inAngles $ list (tok ",") $ identifier lower
+  tok "="
+  dataCtors <- list (tok "|") dataCtor
+  pure MkDataDecl { tyName, tyParams, dataCtors }
+
+dataCtor :: Parser DataCtor
+dataCtor = do
+  ctorName <- identifier upper
+  ltParams <- option [] $ inAngles $ list (tok ",") $ identifier lower
+  params <- option [] $ inParens $ list (tok ",") monoTy
+  pure MkDataCtor { ctorName, ltParams, params }
+
+effDecl :: Parser EffDecl
+effDecl = do
+  tok "effect"
+  effName <- identifier upper
+  tyParams <- option [] $ inAngles $ list (tok ",") $ identifier lower
+  ops <- Map.fromList <$> inBraces (many opSig)
+  pure MkEffDecl { effName, tyParams, ops }
+
+opSig :: Parser (OpName, OpSig)
+opSig = do
+  tok "op"
+  name <- identifier lower
+  tyParams <- option [] $ inAngles $ list (tok ",") tyParam
+  args <- inParens $ list (tok ",") monoTy
+  tok ":"
+  res <- monoTy
+  pure (name, MkOpSig { tyParams, args, res })
+
+varDecl :: Parser VarDecl
+varDecl = do
+  tok "let"
+  name <- identifier lower
+  tok "="
+  body <- expr
+  pure MkVarDecl { name, body }
+
+prog :: Parser Prog
+prog = many decl

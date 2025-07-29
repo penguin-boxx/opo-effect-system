@@ -25,3 +25,6 @@ instance Out a => Show (OutShow a) where
 
 universe :: Uniplate a => Getter a [a]
 universe = to Uniplate.universe
+
+class From from to where
+  from :: from -> to
