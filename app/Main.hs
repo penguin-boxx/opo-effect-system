@@ -42,5 +42,4 @@ main = getArgs >>= \case
     case ty of
       Left err -> putStrLn $ "Type error: " <> show err
       Right ty -> putStrLn $ "Type: " <> show ty
-    undefined
   _ -> putStrLn "Unknown command"

@@ -18,6 +18,8 @@ import Optics
 
 inferExpr :: MonadError String m => EffCtx -> TyCtx -> Expr -> m TySchema
 inferExpr effCtx tyCtx = \case
+  Const _ -> pure $ emptyTySchema $ TyCtor MkTyCtor { name = "Int", lt = LtFree, args = [] }
+  Var name -> tyCtx `tyCtxLookupSchema` name
   TApp MkTApp { lhs = Var varName, ltArgs, tyArgs } -> do
     MkTySchema { ltParams, tyParams, ty } <- tyCtx `tyCtxLookupSchema` varName
     ltSubst <- mkSubst ltParams ltArgs
@@ -26,9 +28,13 @@ inferExpr effCtx tyCtx = \case
     checkBounds tyCtx tyArgs bounds
     pure $ emptyTySchema $ ltSubst @ (tySubst @ ty)
   Lam MkLam { ctxParams, params, body } -> do
-    let tyCtx' = map (paramsToTyCtxEntry True) ctxParams ++ map (paramsToTyCtxEntry False) params ++ tyCtx
+    let tyCtx' =
+          map (paramsToTyCtxEntry True) ctxParams ++
+          map (paramsToTyCtxEntry False) params ++
+          tyCtx
     res <- ensureMonoTy =<< inferExpr effCtx tyCtx' body
-    freeVarsSchemas <- mapM (tyCtxLookupSchema tyCtx') (Set.toList $ freeVars body)
+    let freeVarNames = freeVars body \\ foldMapOf (folded % #name) Set.singleton (ctxParams <> params)
+    freeVarsSchemas <- mapM (tyCtxLookupSchema tyCtx') (Set.toList freeVarNames)
     freeLts <- mconcat <$> mapM (lifetimes tyCtx' PositivePos) freeVarsSchemas
     let capturingLt = LtIntersect $ Set.toList freeLts
     resLts <- lifetimes tyCtx' PositivePos (emptyTySchema res)
@@ -37,6 +43,9 @@ inferExpr effCtx tyCtx = \case
     pure $ emptyTySchema $ TyFun MkTyFun
       { ctx = toListOf (each % #ty) ctxParams, lt = capturingLt
       , args = toListOf (each % #ty) params, res }
+  TLam MkTLam { ltParams, tyParams, body } -> do
+    ty <- ensureMonoTy =<< inferExpr effCtx (fmap TyCtxTy tyParams ++ tyCtx) body
+    pure MkTySchema { ltParams, tyParams, ty }
   App MkApp { callee, ctxArgs, args } -> do
     (expectedCtxArgs, expectedArgs, res) <- inferExpr effCtx tyCtx callee >>= ensureMonoTy >>= \case
       TyFun MkTyFun { ctx, args, res } -> pure (ctx, args, res)
@@ -51,6 +60,17 @@ inferExpr effCtx tyCtx = \case
       unless (subTyOf tyCtx actual expected) $
         throwError $ "Type mismatch: " <> show actual <> " is not a subtype of " <> show expected
     pure $ emptyTySchema res
+  TApp MkTApp { lhs, ltArgs, tyArgs } -> do
+    MkTySchema { ltParams, tyParams, ty } <- inferExpr effCtx tyCtx lhs
+    unless (length tyParams == length tyArgs) $
+      throwError "Type arguments number mismatch"
+    ltSubst <- mkSubst ltParams ltArgs
+    tyParamNames <- forM (zip tyParams tyArgs) \(MkTyParam { name, bound }, arg) -> do
+      unless (subTyOf tyCtx arg (ltSubst @ bound)) $
+        throwError $ "Type argument " <> show arg <> " is not a subtype of bound " <> show bound
+      pure name
+    tySubst <- mkSubst tyParamNames tyArgs
+    pure $ emptyTySchema $ ltSubst @ (tySubst @ ty)
   Match MkMatch { scrutinee, branches } -> do
     MkTyCtor { name = tyCtor, lt, args = tyArgs } <- inferExpr effCtx tyCtx scrutinee >>= ensureMonoTy >>= \case
       TyCtor ctor -> pure ctor -- todo check optics for this
@@ -124,7 +144,7 @@ tyCtxLookupSchema tyCtx targetName = case tyCtx of
 tyCtxLookupBound :: MonadError String m => TyCtx -> TyName -> m MonoTy
 tyCtxLookupBound tyCtx targetName = case tyCtx of
   [] -> throwError $ "Name not found " <> targetName
-  TyCtxTy MkTyCtxTy { name, bound } : _ | name == targetName -> pure bound
+  TyCtxTy MkTyParam { name, bound } : _ | name == targetName -> pure bound
   _ : rest -> rest `tyCtxLookupBound` targetName
 
 tyCtxLookupCtor :: MonadError String m => TyCtx -> CtorName -> m TyCtxCtor

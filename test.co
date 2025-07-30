@@ -1,0 +1,15 @@
+-- data T = K1(Int)
+-- data T = K1(Int) | K2<l>(scoped(l) Int)
+--
+-- effect Reader<s> {
+--     op ask(): s
+--     op id<a>(a): a
+-- }
+
+let compose = fun
+    [l1, l2, l3, l4, l5]
+    <a <: Any'l1, b <: Any'l2, c <: Any'l3>
+    (f : (b)'l4 -> c, g : (a)'l5 -> b)
+    fun(x : a) f(g(x))
+
+let f = fun(y: Int) fun(x: Int) y

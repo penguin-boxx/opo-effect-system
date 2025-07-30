@@ -62,7 +62,7 @@ type TyCtx = [TyCtxEntry]
 data TyCtxEntry
   = TyCtxVar TyCtxVar
   | TyCtxCap TyCtxCap
-  | TyCtxTy TyCtxTy
+  | TyCtxTy TyParam
   | TyCtxCtor TyCtxCtor
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
@@ -77,11 +77,6 @@ data TyCtxCap = MkTyCtxCap { name :: VarName, monoTy :: MonoTy }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
   deriving Show via OutShow TyCtxCap
-
-data TyCtxTy = MkTyCtxTy { name :: TyName, bound :: MonoTy }
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow TyCtxTy
 
 data TyCtxCtor = MkTyCtxCtor
   { name :: CtorName

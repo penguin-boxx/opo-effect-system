@@ -155,7 +155,7 @@ tApp :: Parser TApp
 tApp = do
   lhs <- atom
   ltArgs <- option [] $ inBrackets $ list (tok ",") lt
-  tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
+  tyArgs <- inAngles $ list (tok ",") monoTy
   pure MkTApp { lhs, ltArgs, tyArgs }
 
 ctor :: Parser Ctor
