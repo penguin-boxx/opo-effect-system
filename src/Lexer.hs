@@ -1,5 +1,6 @@
 module Lexer where
 
+import Data.Function ((&))
 import Data.Char qualified as Char
 import Data.List qualified as List
 
@@ -7,7 +8,11 @@ import Data.List qualified as List
 type Token = String
 
 tokenize :: String -> [Token]
-tokenize = concatMap (splitBySelector selector) . words
+tokenize str = str
+  & lines
+  & removeComments
+  & concatMap words
+  & concatMap (splitBySelector selector)
   where
     selector s
       | Just prefix <- List.find (`List.isPrefixOf` s) symbols = prefix
@@ -16,6 +21,7 @@ tokenize = concatMap (splitBySelector selector) . words
     symbols = ["->", "<:", "\\\\"]
     delimiters = [Char.isMark, Char.isPunctuation, Char.isSymbol]
     isDelimiter c = any ($ c) delimiters
+    removeComments = filter (not . ("--" `List.isPrefixOf`))
 
 splitBySelector :: ([a] -> [a]) -> [a] -> [[a]]
 splitBySelector selectFromPrefix xs = case breakSelected xs of

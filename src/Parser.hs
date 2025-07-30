@@ -40,7 +40,10 @@ notKeyword p = p >>= \t ->
   else
     pure t
   where
-    keywords = Set.fromList ["effect", "fun", "op", "match", "case", "local", "free", "scoped"]
+    keywords = Set.fromList
+      ["effect", "fun", "op", "match", "case", "local"
+      , "free", "scoped"
+      ]
 
 inParens :: Parser a -> Parser a
 inParens = between (tok "(") (tok ")")
@@ -50,6 +53,9 @@ inBraces = between (tok "{") (tok "}")
 
 inAngles :: Parser a -> Parser a
 inAngles = between (tok "<") (tok ">")
+
+inBrackets :: Parser a -> Parser a
+inBrackets = between (tok "[") (tok "]")
 
 identifier :: TokenParser Char -> Parser VarName
 identifier initial = notKeyword $ parseToken $
@@ -77,28 +83,24 @@ lt =
 
 monoTy :: Parser MonoTy
 monoTy =
-  TyCtor <$> try tyCtor <|>
+  TyCtor <$> tyCtor <|>
   TyFun <$> tyFun <|>
   TyVar <$> identifier lower
 
 tyCtor :: Parser TyCtor
 tyCtor = do
-  ctorLt <- option LtFree do
-    tok "scoped"
-    inParens lt
   name <- identifier upper
   args <- option [] $ inAngles $ list (tok ",") monoTy
+  ctorLt <- option LtFree (tok "'" *> lt)
   pure MkTyCtor { name, lt = ctorLt, args }
 
 tyFun :: Parser TyFun
 tyFun = do
-  funLt <- option LtFree do
-    tok "scoped"
-    inParens lt
   ctx <- option [] do
     tok "context"
     inParens effRow
   args <- inParens $ list (tok ",") monoTy
+  funLt <- option LtFree (tok "'" *> lt)
   tok "->"
   res <- monoTy
   pure MkTyFun { ctx, lt = funLt, args, res }
@@ -110,79 +112,59 @@ tyParam :: Parser TyParam
 tyParam =
   MkTyParam <$>
   identifier lower <*>
-  option
-    (TyCtor MkTyCtor { name = "Any", lt = LtLocal, args = [] })
-    (tok "<:" *> monoTy)
+  option top (tok "<:" *> monoTy)
 
 tySchema :: Parser TySchema
 tySchema = do
-  tok "<"
-  ltParams <- list (tok ",") $ identifier lower
-  tok ";"
-  tyParams <- list (tok ",") tyParam
-  tok ">"
+  ltParams <- option [] $ inBrackets $ list (tok ",") (identifier lower)
+  tyParams <- option [] $ inAngles $ list (tok ",") tyParam
   ty <- monoTy
   pure MkTySchema { ltParams, tyParams, ty }
 
 atom :: Parser Expr
 atom =
   inParens expr <|>
-  TLam <$> tLam <|>
-  Lam <$> lam <|>
+  fun <|>
   Match <$> match <|>
   Const <$> number <|>
   Var <$> identifier lower
 
 expr :: Parser Expr
 expr =
-  TApp <$> try tApp <|>
   Ctor <$> try ctor <|>
   App <$> try app <|>
+  TApp <$> try tApp <|>
   atom
 
-tLam :: Parser TLam
-tLam = do
-  tok "\\\\"
-  tok "<"
-  ltParams <- list (tok ",") $ identifier lower
-  tok ";"
-  tyParams <- list (tok ",") tyParam
-  tok ">"
-  tok "->"
+fun :: Parser Expr
+fun = do
+  ctxParams <- option [] do
+    tok "context"
+    inParens $ list (tok ",") param
+  tok "fun"
+  ltParams <- option [] $ inBrackets $ list (tok ",") $ identifier lower
+  tyParams <- option [] $ inAngles $ list (tok ",") tyParam
+  params <- inParens $ list (tok ",") param
   body <- expr
-  pure MkTLam { ltParams, tyParams, body }
+  pure $ TLam MkTLam
+    { ltParams, tyParams
+    , body = Lam MkLam { ctxParams, params, body }
+    }
 
 tApp :: Parser TApp
 tApp = do
   lhs <- atom
-  tok "<"
-  ltArgs <- list (tok ",") lt
-  tok ";"
-  tyArgs <- list (tok ",") monoTy
-  tok ">"
+  ltArgs <- option [] $ inBrackets $ list (tok ",") lt
+  tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
   pure MkTApp { lhs, ltArgs, tyArgs }
 
 ctor :: Parser Ctor
 ctor = do
   name <- identifier upper
-  tok "<"
-  ltArgs <- list (tok ",") lt
-  tok ";"
-  tyArgs <- list (tok ",") monoTy
-  tok ">"
+  ltArgs <- option [] $ inBrackets $ list (tok ",") lt
+  tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
   args <- inParens $ list (tok ",") expr
   pure MkCtor { name, ltArgs, tyArgs, args }
-
-lam :: Parser Lam
-lam = do
-  ctxParams <- option [] do
-    tok "context"
-    inParens $ list (tok ",") param
-  tok "\\"
-  params <- inParens $ list (tok ",") param
-  tok "->"
-  body <- expr
-  pure MkLam { ctxParams, params, body }
 
 param :: Parser Param
 param = do
@@ -194,19 +176,20 @@ param = do
 app :: Parser App
 app = do
   callee <- atom
-  tok "("
-  ctxArgs <- list (tok ",") expr
-  tok ";"
-  args <- list (tok ",") expr
+  (ctxArgs, args) <- inParens do
+    firstArgs <- list (tok ",") expr
+    optionMaybe (tok ";") >>= \case
+      Nothing -> pure ([], firstArgs)
+      Just _ -> do
+        secondArgs <- list (tok ",") expr
+        pure (firstArgs, secondArgs)
   pure MkApp { callee, ctxArgs, args }
 
 match :: Parser Match
 match = do
   tok "match"
   scrutinee <- expr
-  tok "{"
-  branches <- some branch
-  tok "}"
+  branches <- inBraces $ some branch
   pure MkMatch { scrutinee, branches }
 
 branch :: Parser Branch
@@ -236,7 +219,7 @@ dataDecl = do
 dataCtor :: Parser DataCtor
 dataCtor = do
   ctorName <- identifier upper
-  ltParams <- option [] $ inAngles $ list (tok ",") $ identifier lower
+  ltParams <- option [] $ inBrackets $ list (tok ",") $ identifier lower
   params <- option [] $ inParens $ list (tok ",") monoTy
   pure MkDataCtor { ctorName, ltParams, params }
 
@@ -245,7 +228,7 @@ effDecl = do
   tok "effect"
   effName <- identifier upper
   tyParams <- option [] $ inAngles $ list (tok ",") $ identifier lower
-  ops <- Map.fromList <$> inBraces (many opSig)
+  ops <- Map.fromList <$> inBraces (some opSig)
   pure MkEffDecl { effName, tyParams, ops }
 
 opSig :: Parser (OpName, OpSig)

@@ -30,7 +30,7 @@ main = getArgs >>= \case
             , params
             , res = MkTyCtor
               { name = tyName
-              , lt = LtIntersect $ fmap LtVar ltParams
+              , lt = LtIntersect $ fmap LtVar ltParams -- TODO add param lifetimes
               , args = TyVar <$> tyParams
               }
             }
