@@ -34,6 +34,7 @@ instance DoSubst MonoTy where
 
 
 newtype Subst target = Subst { getSubst :: Map String target }
+  deriving newtype Show
 
 mkSubst :: MonadError String m => [String] -> [target] -> m (Subst target)
 mkSubst names target = do

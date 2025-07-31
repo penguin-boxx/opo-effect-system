@@ -14,6 +14,8 @@ import Data.Function (fix)
 import Data.List qualified as List
 import Data.Set (Set, (\\))
 import Data.Set qualified as Set
+import Debug.Trace
+import GHC.Stack
 import Optics
 
 inferExpr :: MonadError String m => EffCtx -> TyCtx -> Expr -> m TySchema
@@ -73,24 +75,25 @@ inferExpr effCtx tyCtx = \case
     tySubst <- mkSubst tyParamNames tyArgs
     pure $ emptyTySchema $ ltSubst @ (tySubst @ ty)
   Match MkMatch { scrutinee, branches } -> do
-    MkTyCtor { name = tyCtor, lt, args = tyArgs } <- inferExpr effCtx tyCtx scrutinee >>= ensureMonoTy >>= \case
-      TyCtor ctor -> pure ctor -- todo check optics for this
-      other -> throwError $ "Expected type ctor, got " <> show other
-    when (null branches) $
-      throwError "Pattern matching should contain at least one branch" -- how to type it otherwise?
+    MkTyCtor { name = tyCtor, lt, args = tyArgs } <-
+      inferExpr effCtx tyCtx scrutinee >>= ensureMonoTy >>= \case
+        TyCtor ctor -> pure ctor -- todo check optics for this
+        other -> throwError $ "Expected type ctor, got " <> show other
+    let ctorCandidates = tyCtx `tyCtxLookupCtors` tyCtor
     resTys <- forM branches \MkBranch{ ctorName, varPatterns, body } -> do
-      MkTyCtxCtor { name = branchTyCtor, tyParams, params } <- tyCtx `tyCtxLookupCtor` ctorName
-      unless (branchTyCtor == tyCtor) $
-        throwError $ "Pattern has wrong type: " <> branchTyCtor
+      MkTyCtxCtor { tyParams, params } <-
+        case find (\MkTyCtxCtor { name } -> name == ctorName) ctorCandidates of
+          Nothing -> throwError $ "Ctor " <> ctorName <> " do not have expected type"
+          Just ctor -> pure ctor
       unless (length varPatterns == length params) $
         throwError "Number of patterns mismatch"
       tySubst <- mkSubst (toListOf (each % #name) tyParams) tyArgs
-      params' <- forM params \param -> do
+      params' <- forM (fmap (tySubst @) params) \param -> do
         posLts <- Set.toList <$> freeLtVars tyCtx PositivePos param
         negLts <- Set.toList <$> freeLtVars tyCtx NegativePos param
-        posSubst <- mkSubst posLts (repeat lt)
-        negSubst <- mkSubst negLts (repeat LtFree)
-        pure $ tySubst @ (posSubst @ (negSubst @ param)) -- todo check order
+        posSubst <- mkSubst posLts (replicate (length posLts) lt)
+        negSubst <- mkSubst negLts (replicate (length negLts) LtFree)
+        pure $ posSubst @ (negSubst @ param) -- todo check order
       let mkCtxVar name param = TyCtxVar MkTyCtxVar { name, tySchema = emptyTySchema param }
       let tyCtx' = zipWith mkCtxVar varPatterns params' ++ tyCtx
       inferExpr effCtx tyCtx' body
@@ -121,6 +124,8 @@ subTyOf tyCtx = curry \case
       , length args1 == length args2
       , subTyOf tyCtx res1 res2
       ] -- TODO ctx
+  ( TyFun MkTyFun { lt = lt1 },
+    TyCtor MkTyCtor { name = "Any", lt = lt2 } ) -> lt1 `subLtOf` lt2
   _ -> False
 
 subTyCtorOf :: CtorName -> CtorName -> Bool
@@ -135,7 +140,7 @@ subLtOf = curry \case
 
 tyCtxLookupSchema :: MonadError String m => TyCtx -> VarName -> m TySchema
 tyCtxLookupSchema tyCtx targetName = case tyCtx of
-  [] -> throwError $ "Name not found " <> targetName
+  [] -> throwError $ "Name not found " <> targetName <> " in ctx " <> show tyCtx
   TyCtxVar MkTyCtxVar { name, tySchema } : _ | name == targetName -> pure tySchema
   TyCtxCap MkTyCtxCap { name, monoTy } : _ | name == targetName -> pure (emptyTySchema monoTy)
   TyCtxCtor MkTyCtxCtor { name, ltParams, tyParams, params, res } : _ | name == targetName ->
@@ -145,17 +150,19 @@ tyCtxLookupSchema tyCtx targetName = case tyCtx of
       }
   _ : rest -> rest `tyCtxLookupSchema` targetName
 
-tyCtxLookupBound :: MonadError String m => TyCtx -> TyName -> m MonoTy
+tyCtxLookupBound :: (HasCallStack, MonadError String m) => TyCtx -> TyName -> m MonoTy
 tyCtxLookupBound tyCtx targetName = case tyCtx of
-  [] -> throwError $ "Name not found " <> targetName
+  [] -> throwError $ "Name not found " <> targetName <> " in ctx " <> show tyCtx <>
+    " from " <> prettyCallStack callStack
   TyCtxTy MkTyParam { name, bound } : _ | name == targetName -> pure bound
   _ : rest -> rest `tyCtxLookupBound` targetName
 
-tyCtxLookupCtor :: MonadError String m => TyCtx -> CtorName -> m TyCtxCtor
-tyCtxLookupCtor tyCtx targetName = case tyCtx of
-  [] -> throwError $ "Ctor not found " <> targetName
-  TyCtxCtor ctor : _ -> pure ctor
-  _ : rest -> rest `tyCtxLookupCtor` targetName
+tyCtxLookupCtors :: TyCtx -> TyName -> [TyCtxCtor]
+tyCtxLookupCtors tyCtx targetName =
+  [ ctor
+  | TyCtxCtor ctor@MkTyCtxCtor { res = MkTyCtor { name } } <- tyCtx
+  , name == targetName
+  ]
 
 paramsToTyCtxEntry :: Bool -> Param -> TyCtxEntry
 paramsToTyCtxEntry contextual MkParam { name, ty }
@@ -190,7 +197,9 @@ data PositionSign = PositivePos | NegativePos deriving Eq
 changeSign :: PositionSign -> PositionSign
 changeSign = \case PositivePos -> NegativePos; NegativePos -> PositivePos
 
-freeLtVars :: MonadError String m => TyCtx -> PositionSign -> MonoTy -> m (Set LtName)
+freeLtVars
+  :: (HasCallStack, MonadError String m)
+  => TyCtx -> PositionSign -> MonoTy -> m (Set LtName)
 freeLtVars tyCtx expectedSign =
   fmap (foldMap f) . lifetimes tyCtx expectedSign . emptyTySchema
   where
@@ -200,7 +209,7 @@ freeLtVars tyCtx expectedSign =
       LtFree -> Set.empty
       LtIntersect lts -> foldMap f lts
 
-lifetimes :: MonadError String m => TyCtx -> PositionSign -> TySchema -> m (Set Lt)
+lifetimes :: (HasCallStack, MonadError String m) => TyCtx -> PositionSign -> TySchema -> m (Set Lt)
 lifetimes tyCtx expectedSign MkTySchema { ltParams, tyParams, ty } = do
   allLts <- execWriterT $ lifetimesMono PositivePos ty
   pure $ foldr (Set.delete . LtVar) allLts ltParams
