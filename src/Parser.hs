@@ -42,7 +42,7 @@ notKeyword p = p >>= \t ->
   where
     keywords = Set.fromList
       ["effect", "fun", "op", "match", "case", "local"
-      , "free", "scoped"
+      , "free", "scoped", "handle", "in", "perform"
       ]
 
 inParens :: Parser a -> Parser a
@@ -126,6 +126,8 @@ atom =
   inParens expr <|>
   fun <|>
   Match <$> match <|>
+  Perform <$> perform <|>
+  Handle <$> handle <|>
   Const <$> number <|>
   Var <$> identifier lower <|>
   Var <$> identifier upper
@@ -177,6 +179,37 @@ match = do
   branches <- inBraces $ some branch
   pure MkMatch { scrutinee, branches }
 
+perform :: Parser Perform
+perform = do
+  tok "perform"
+  opName <- identifier lower
+  tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
+  args <- inParens $ list (tok ",") expr
+  tok "to"
+  cap <- expr
+  pure MkPerform { opName, cap, tyArgs, args }
+
+handle :: Parser Handle
+handle = do
+  tok "handle"
+  capName <- identifier lower
+  tok ":"
+  effTy <- tyCtor
+  h <- handler
+  body <- expr
+  pure MkHandle { capName, effTy, handler = h, body }
+
+handler :: Parser Handler
+handler = inBraces $ many handlerEntry
+
+handlerEntry :: Parser HandlerEntry
+handlerEntry = do
+  tok "op"
+  opName <- identifier lower
+  params <- inParens $ list (tok ",") $ identifier lower
+  body <- expr
+  pure MkHandlerEntry { opName, params, body }
+
 branch :: Parser Branch
 branch = do
   tok "case"
@@ -220,11 +253,11 @@ opSig :: Parser (OpName, OpSig)
 opSig = do
   tok "op"
   name <- identifier lower
-  tyParams <- option [] $ inAngles $ list (tok ",") tyParam
-  args <- inParens $ list (tok ",") monoTy
+  tyParams <- option [] $ inAngles $ list (tok ",") $ identifier lower
+  params <- inParens $ list (tok ",") monoTy
   tok ":"
   res <- monoTy
-  pure (name, MkOpSig { tyParams, args, res })
+  pure (name, MkOpSig { tyParams, params, res })
 
 varDecl :: Parser VarDecl
 varDecl = do

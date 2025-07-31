@@ -91,11 +91,11 @@ data TyCtxCtor = MkTyCtxCtor
 
 type EffCtx = [EffCtxEntry]
 
-data EffCtxEntry = EffCtxEntry
+data EffCtxEntry = MkEffCtxEntry
   { capCtor :: CtorName
   , tyParams :: [TyName]
-  , sig :: EffSig
-  , tyCtor :: TyName
+  , ops :: EffSig
+  , effName :: TyName
   }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
@@ -104,8 +104,8 @@ data EffCtxEntry = EffCtxEntry
 type EffSig = Map OpName OpSig
 
 data OpSig = MkOpSig
-  { tyParams :: [TyParam]
-  , args :: [MonoTy]
+  { tyParams :: [TyName]
+  , params :: [MonoTy]
   , res :: MonoTy
   }
   deriving stock (Eq, Ord, Data, Typeable, Generic)

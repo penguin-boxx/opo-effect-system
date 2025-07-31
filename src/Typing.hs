@@ -14,6 +14,7 @@ import Data.Function (fix)
 import Data.List qualified as List
 import Data.Set (Set, (\\))
 import Data.Set qualified as Set
+import Data.Map ((!?))
 import Debug.Trace
 import GHC.Stack
 import Optics
@@ -100,9 +101,31 @@ inferExpr effCtx tyCtx = \case
     unless (and $ zipWith (==) resTys (drop 1 resTys)) $
       throwError "Branch result types shouls be equal" -- todo LUB
     pure $ head resTys
-
+  Perform MkPerform { opName, cap, tyArgs = opTyArgs, args } -> do
+    MkTyCtor { name = effName, args = tyArgs } <-
+      inferExpr effCtx tyCtx cap >>= ensureMonoTy >>= \case
+        TyCtor ctor -> pure ctor
+        other -> throwError $ "Expected type constructor, got " <> show other
+    argTys <- mapM (ensureMonoTy <=< inferExpr effCtx tyCtx) args
+    MkEffCtxEntry { tyParams, ops } <- effCtx `effCtxLookup` effName
+    MkOpSig { tyParams = opTyParams, params, res } <- case ops !? opName of
+      Nothing -> throwError $ "Effect " <> effName <> " do not include operation " <> opName
+      Just op -> pure op
+    -- todo check order
+    -- todo join two substitutions
+    subst <- mkSubst (tyParams ++ opTyParams) (tyArgs ++ opTyArgs)
+    unless (length params == length argTys) $
+      throwError "Operation arguments number mismatch"
+    forM_ (zip params argTys) \(param, arg) ->
+      unless (subTyOf tyCtx arg (subst @ param)) $
+        throwError "Operation argument type mismatch"
+    pure $ emptyTySchema $ subst @ res
+  Handle MkHandle { capName, effTy, handler, body } -> do
+    
+    undefined
   unsupported -> error $ "Unsupported construct: " <> show unsupported
 
+-- todo generalize and use everywhere
 checkBounds :: MonadError String m => TyCtx -> [MonoTy] -> [MonoTy] -> m ()
 checkBounds tyCtx args bounds = do
   unless (length args == length bounds) $
@@ -163,6 +186,12 @@ tyCtxLookupCtors tyCtx targetName =
   | TyCtxCtor ctor@MkTyCtxCtor { res = MkTyCtor { name } } <- tyCtx
   , name == targetName
   ]
+
+effCtxLookup :: MonadError String m => EffCtx -> TyName -> m EffCtxEntry
+effCtxLookup effCtx targetName =
+  case find (\MkEffCtxEntry { effName } -> effName == targetName) effCtx of
+    Nothing -> throwError $ "Effect not found " <> targetName
+    Just entry -> pure entry
 
 paramsToTyCtxEntry :: Bool -> Param -> TyCtxEntry
 paramsToTyCtxEntry contextual MkParam { name, ty }

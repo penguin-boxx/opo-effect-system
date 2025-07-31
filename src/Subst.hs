@@ -52,8 +52,11 @@ instance DoSubst target => Apply (Subst target) Lt Lt where
 instance DoSubst target => Apply (Subst target) MonoTy MonoTy where
   f @ arg = case arg of
     TyVar name -> onMonoTy f name arg
-    TyCtor MkTyCtor { name, lt, args } -> TyCtor MkTyCtor { name, lt = f @ lt, args = f @ args }
+    TyCtor ctor -> TyCtor $ f @ ctor
     TyFun MkTyFun { ctx, lt, args, res } -> TyFun MkTyFun { ctx = f @ ctx, lt = f @ lt, args = f @ args, res = f @ res}
+
+instance DoSubst target => Apply (Subst target) TyCtor TyCtor where
+  f @ MkTyCtor { name, lt, args } = MkTyCtor { name, lt = f @ lt, args = f @ args }
 
 instance DoSubst target => Apply (Subst target) Expr Expr where
   f @ arg = case arg of

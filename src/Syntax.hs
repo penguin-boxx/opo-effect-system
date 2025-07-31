@@ -86,13 +86,24 @@ data Perform = MkPerform
 
 data Handle = MkHandle
   { capName :: VarName
-  , effTy :: MonoTy
+  , effTy :: TyCtor
   , handler :: Handler
   , body :: Expr
   }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
   deriving Show via OutShow Handle
+
+type Handler = [HandlerEntry]
+
+data HandlerEntry = MkHandlerEntry
+  { opName :: OpName
+  , params :: [VarName]
+  , body :: Expr
+  }
+  deriving stock (Eq, Ord, Data, Typeable, Generic)
+  deriving anyclass Out
+  deriving Show via OutShow HandlerEntry
 
 data RtHandler = MkRtHandler { marker :: Marker, body :: Expr }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
@@ -101,16 +112,6 @@ data RtHandler = MkRtHandler { marker :: Marker, body :: Expr }
 
 -- Delimited continuation marker.
 type Marker = Int
-
-data HandlerEntry = MkHandlerEntry
-  { opName :: OpName
-  , body :: Expr
-  }
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow HandlerEntry
-
-type Handler = [HandlerEntry]
 
 data Decl
   = DataDecl DataDecl

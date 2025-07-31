@@ -44,8 +44,12 @@ main = getArgs >>= \case
         | DataDecl MkDataDecl { tyName, tyParams, dataCtors } <- prog
         , MkDataCtor { ctorName, ltParams, params } <- dataCtors
         ]
+      let effCtx =
+            [ MkEffCtxEntry { capCtor = effName <> "K", tyParams, ops, effName }
+            | EffDecl MkEffDecl { effName, tyParams, ops } <- prog
+            ]
       let expr = head [body | VarDecl MkVarDecl { name, body } <- prog, name == target]
-      inferExpr [] tyCtx expr
+      inferExpr effCtx tyCtx expr
     case result of
       Left err -> putStrLn $ "Type error: " <> err
       Right ty -> putStrLn $ "Type: " <> show ty
