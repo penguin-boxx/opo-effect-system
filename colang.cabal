@@ -26,7 +26,6 @@ library
   exposed-modules:
       Common
       Driver
-      Embedding
       Lexer
       Parser
       Semantics

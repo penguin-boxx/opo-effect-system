@@ -61,7 +61,6 @@ instance DoSubst target => Apply (Subst target) Expr Expr where
     Var _ -> arg
     TLam {} -> error "TLam is not supported"
     TApp MkTApp { lhs, ltArgs, tyArgs } -> TApp MkTApp { lhs = f @ lhs, ltArgs = f @ ltArgs, tyArgs = f @ tyArgs }
-    Ctor MkCtor { name, ltArgs, tyArgs, args } -> Ctor MkCtor { name, ltArgs = f @ ltArgs, tyArgs = f @ tyArgs, args = f @ args }
     CapCtor MkCapCtor { name, tyArgs, marker, handler } -> CapCtor MkCapCtor { name, tyArgs = f @ tyArgs, marker, handler = f @ handler }
     Lam MkLam { ctxParams, params, body } -> Lam MkLam { ctxParams = f @ ctxParams, params = f @ params, body = f @ body }
     App MkApp { callee, ctxArgs, args } -> App MkApp { callee = f @ callee, ctxArgs = f @ ctxArgs, args = f @ args }

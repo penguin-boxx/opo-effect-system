@@ -127,14 +127,26 @@ atom =
   fun <|>
   Match <$> match <|>
   Const <$> number <|>
-  Var <$> identifier lower
+  Var <$> identifier lower <|>
+  Var <$> identifier upper
 
 expr :: Parser Expr
-expr =
-  Ctor <$> try ctor <|>
-  App <$> try app <|>
-  TApp <$> try tApp <|>
-  atom
+expr = do
+  target <- atom
+  ltArgs <- option [] $ inBrackets $ list (tok ",") lt
+  tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
+  mbArgs <- option Nothing $ inParens do
+    firstArgs <- list (tok ",") expr
+    optionMaybe (tok ";") >>= \case
+      Nothing -> pure $ Just ([], firstArgs)
+      Just _ -> do
+        secondArgs <- list (tok ",") expr
+        pure $ Just (firstArgs, secondArgs)
+  let callee = if null ltArgs && null tyArgs then target else
+        TApp MkTApp { lhs = target, ltArgs, tyArgs }
+  pure case mbArgs of
+    Nothing -> callee
+    Just (ctxArgs, args) -> App MkApp { callee, ctxArgs, args }
 
 fun :: Parser Expr
 fun = do
@@ -151,39 +163,12 @@ fun = do
     , body = Lam MkLam { ctxParams, params, body }
     }
 
-tApp :: Parser TApp
-tApp = do
-  lhs <- atom
-  ltArgs <- option [] $ inBrackets $ list (tok ",") lt
-  tyArgs <- inAngles $ list (tok ",") monoTy
-  pure MkTApp { lhs, ltArgs, tyArgs }
-
-ctor :: Parser Ctor
-ctor = do
-  name <- identifier upper
-  ltArgs <- option [] $ inBrackets $ list (tok ",") lt
-  tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
-  args <- inParens $ list (tok ",") expr
-  pure MkCtor { name, ltArgs, tyArgs, args }
-
 param :: Parser Param
 param = do
   name <- identifier lower
   tok ":"
   ty <- monoTy
   pure MkParam { name, ty }
-
-app :: Parser App
-app = do
-  callee <- atom
-  (ctxArgs, args) <- inParens do
-    firstArgs <- list (tok ",") expr
-    optionMaybe (tok ";") >>= \case
-      Nothing -> pure ([], firstArgs)
-      Just _ -> do
-        secondArgs <- list (tok ",") expr
-        pure (firstArgs, secondArgs)
-  pure MkApp { callee, ctxArgs, args }
 
 match :: Parser Match
 match = do

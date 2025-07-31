@@ -14,7 +14,6 @@ data Expr
   | Var VarName
   | TLam TLam
   | TApp TApp
-  | Ctor Ctor
   | CapCtor CapCtor
   | Lam Lam
   | App App
@@ -35,16 +34,6 @@ data TApp = MkTApp { lhs :: Expr, ltArgs :: [Lt], tyArgs :: [MonoTy] }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
   deriving Show via OutShow TApp
-
-data Ctor = MkCtor
-  { name :: CtorName
-  , ltArgs :: [Lt]
-  , tyArgs :: [MonoTy]
-  , args :: [Expr]
-  }
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow Ctor
 
 data CapCtor = MkCapCtor
   { name :: CtorName

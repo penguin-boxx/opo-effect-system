@@ -33,7 +33,8 @@ inferExpr effCtx tyCtx = \case
           map (paramsToTyCtxEntry False) params ++
           tyCtx
     res <- ensureMonoTy =<< inferExpr effCtx tyCtx' body
-    let freeVarNames = freeVars body \\ foldMapOf (folded % #name) Set.singleton (ctxParams <> params)
+    let boundVars = foldMapOf (folded % #name) Set.singleton (ctxParams <> params)
+    let freeVarNames = freeVars body \\ boundVars
     freeVarsSchemas <- mapM (tyCtxLookupSchema tyCtx') (Set.toList freeVarNames)
     freeLts <- mconcat <$> mapM (lifetimes tyCtx' PositivePos) freeVarsSchemas
     let capturingLt = LtIntersect $ Set.toList freeLts
@@ -103,15 +104,18 @@ checkBounds :: MonadError String m => TyCtx -> [MonoTy] -> [MonoTy] -> m ()
 checkBounds tyCtx args bounds = do
   unless (length args == length bounds) $
     throwError "Arguments and parameters number mismatch"
-  unless (and $ zipWith (subTyOf tyCtx) args bounds) $
-    throwError "Type argument do not satisfy bound"
+  forM_ (zip args bounds) \(arg, bound) ->
+    unless (subTyOf tyCtx arg bound) $
+      throwError $ "Type argument " <> show arg <> " do not satisfy bound " <> show bound
 
 subTyOf :: TyCtx -> MonoTy -> MonoTy -> Bool
 subTyOf tyCtx = curry \case
-  (TyVar name1, TyVar name2) -> name1 == name2
-  (TyCtor MkTyCtor { name = ctor1, lt = lt1, args = args1 }, TyCtor MkTyCtor { name = ctor2, lt = lt2, args = args2 }) ->
+  (TyVar name1, TyVar name2) -> name1 == name2;
+  ( TyCtor MkTyCtor { name = ctor1, lt = lt1, args = args1 },
+    TyCtor MkTyCtor { name = ctor2, lt = lt2, args = args2 } ) ->
     ctor1 `subTyCtorOf` ctor2 && lt1 `subLtOf` lt2 && args1 == args2
-  (TyFun MkTyFun { lt = lt1, args = args1, res = res1 }, TyFun MkTyFun { lt = lt2, args = args2, res = res2}) ->
+  ( TyFun MkTyFun { lt = lt1, args = args1, res = res1 },
+    TyFun MkTyFun { lt = lt2, args = args2, res = res2 } ) ->
     and $ zipWith (subTyOf tyCtx) args2 args1 ++
       [ lt1 `subLtOf` lt2
       , length args1 == length args2
@@ -120,7 +124,7 @@ subTyOf tyCtx = curry \case
   _ -> False
 
 subTyCtorOf :: CtorName -> CtorName -> Bool
-subTyCtorOf ctor1 ctor2 = ctor1 == ctor2 || ctor1 == "Any"
+subTyCtorOf ctor1 ctor2 = ctor1 == ctor2 || ctor2 == "Any"
 
 subLtOf :: Lt -> Lt -> Bool
 subLtOf = curry \case
@@ -170,7 +174,6 @@ freeVars = \case
   Var name -> Set.singleton name
   TLam MkTLam { body } -> freeVars body
   TApp MkTApp { lhs } -> freeVars lhs
-  Ctor MkCtor { args } -> foldMap freeVars args
   CapCtor MkCapCtor { } -> error "Unused"
   Lam MkLam { ctxParams, params, body } ->
     freeVars body \\ foldMapOf (each % #name) Set.singleton (ctxParams <> params)

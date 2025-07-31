@@ -6,6 +6,10 @@
 --     op id<a>(a): a
 -- }
 
+data Option<a> = None | Some(a)
+
+data Repository = Repository[l](Int'local, Int'l)
+
 let compose = fun
     [l1, l2, l3, l4, l5]
     <a <: Any'l1, b <: Any'l2, c <: Any'l3>
@@ -13,3 +17,5 @@ let compose = fun
     fun(x : a) f(g(x))
 
 let f = fun(y: Int) fun(x: Int) y
+
+let r = Some<Int>(1)
