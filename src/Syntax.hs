@@ -98,7 +98,7 @@ type Handler = [HandlerEntry]
 
 data HandlerEntry = MkHandlerEntry
   { opName :: OpName
-  , params :: [VarName]
+  , paramNames :: [VarName]
   , body :: Expr
   }
   deriving stock (Eq, Ord, Data, Typeable, Generic)

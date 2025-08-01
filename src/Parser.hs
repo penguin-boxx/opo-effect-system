@@ -206,9 +206,9 @@ handlerEntry :: Parser HandlerEntry
 handlerEntry = do
   tok "op"
   opName <- identifier lower
-  params <- inParens $ list (tok ",") $ identifier lower
+  paramNames <- inParens $ list (tok ",") $ identifier lower
   body <- expr
-  pure MkHandlerEntry { opName, params, body }
+  pure MkHandlerEntry { opName, paramNames, body }
 
 branch :: Parser Branch
 branch = do

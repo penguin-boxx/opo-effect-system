@@ -15,6 +15,7 @@ import Data.List qualified as List
 import Data.Set (Set, (\\))
 import Data.Set qualified as Set
 import Data.Map ((!?))
+import Data.Map qualified as Map
 import Debug.Trace
 import GHC.Stack
 import Optics
@@ -121,8 +122,39 @@ inferExpr effCtx tyCtx = \case
         throwError "Operation argument type mismatch"
     pure $ emptyTySchema $ subst @ res
   Handle MkHandle { capName, effTy, handler, body } -> do
-    
-    undefined
+    unless (#lt % only LtLocal `has` effTy) $
+      throwError "Capabilities can only have local lifetime"
+    let capCtx = TyCtxCap MkTyCtxCap { name = capName, monoTy = TyCtor effTy }
+    resTy <- ensureMonoTy =<< inferExpr effCtx (capCtx : tyCtx) body
+    resLts <- lifetimes tyCtx PositivePos (emptyTySchema resTy)
+    resFv <- (<>) <$> freeLtVars tyCtx PositivePos resTy <*> freeLtVars tyCtx NegativePos resTy
+    when (LtLocal `Set.member` resLts) $
+      throwError "Tracked value is escaping out of the handler body"
+    let MkTyCtor { name = effName, args = effTyArgs } = effTy
+    MkEffCtxEntry { tyParams = effTyParams, ops } <- effCtx `effCtxLookup` effName
+    subst <- mkSubst effTyParams effTyArgs
+    unless (length handler == Map.size ops) $
+      throwError "Wrong number of implemented operations"
+    forM_ handler \MkHandlerEntry { opName, paramNames, body } -> do
+      -- todo make substitution carefully
+      MkOpSig { tyParams = opTyParams, params = fmap (subst @) -> params, res = (subst @) -> opResTy } <-
+        case ops !? opName of
+          Nothing -> throwError $ "Operation " <> opName <> " is not specified for effect " <> effName
+          Just sig -> pure sig
+      unless (Set.fromList opTyParams `Set.disjoint` resFv) $
+        throwError "Operation generics should not leak" -- todo
+      unless (length paramNames == length params) $
+        throwError "Operation parameter number mismatch"
+      let opParamCtx = TyCtxVar <$> zipWith MkTyCtxVar paramNames (emptyTySchema <$> params)
+      let resumeCtx = TyCtxVar MkTyCtxVar
+            { name = "resume", tySchema = emptyTySchema $ TyFun MkTyFun
+                { ctx = [], lt = LtFree, args = [opResTy], res = resTy
+                }
+            }
+      opRetTy <- ensureMonoTy =<< inferExpr effCtx (opParamCtx ++ resumeCtx : tyCtx) (subst @ body)
+      unless (opRetTy == resTy) $
+        throwError $ "Operation " <> opName <> " return type " <> show opRetTy <> " mismatch"
+    pure $ emptyTySchema resTy
   unsupported -> error $ "Unsupported construct: " <> show unsupported
 
 -- todo generalize and use everywhere

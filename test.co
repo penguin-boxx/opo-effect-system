@@ -23,7 +23,7 @@ effect Reader<e> {
 }
 
 let reader =
-    handle r: Reader<Int> {
+    handle r: Reader<Int>'local {
         op ask() 42
     }
     perform ask() to r

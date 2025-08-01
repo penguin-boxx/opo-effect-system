@@ -16,12 +16,15 @@ import Data.Set qualified as Set
 import System.Environment
 import Optics
 
+fileName :: String
+fileName = "test.co"
+
 main :: IO ()
 main = getArgs >>= \case
-  ["ast", fileName] -> do
+  ["ast"] -> do
     prog :: Prog <- runSyntaxAnalisys <$> readFile fileName
     forM_ prog print
-  ["type", fileName, target] -> do
+  ["type", target] -> do
     prog <- runSyntaxAnalisys <$> readFile fileName
     result <- runExceptT do
       tyCtx <- sequenceA
