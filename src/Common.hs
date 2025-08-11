@@ -5,6 +5,8 @@ module Common where
 
 import Data.Map (Map)
 import Data.Map qualified as Map
+import Data.Set (Set)
+import Data.Set qualified as Set
 import Text.PrettyPrint.GenericPretty
 import Data.Coerce
 import Data.Generics.Uniplate.Data (Uniplate)
@@ -24,8 +26,11 @@ newtype OutShow a = OutShow a
 instance Out a => Show (OutShow a) where
   show (OutShow x) = pretty x
 
-universe :: Uniplate a => Getter a [a]
-universe = to Uniplate.universe
+subTrees :: Uniplate a => Getter a [a]
+subTrees = to Uniplate.universe
+
+toSetOf :: (Is k A_Fold, Ord a) => Optic' k is s a -> s -> Set a
+toSetOf o = foldMapOf o Set.singleton
 
 class From from to where
   from :: from -> to

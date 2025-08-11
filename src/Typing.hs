@@ -11,7 +11,6 @@ import Control.Monad.Except
 import Control.Monad.Writer
 import Control.Monad.Reader
 import Data.Foldable
-import Data.Tagged
 import Data.Function (fix)
 import Data.List qualified as List
 import Data.Set (Set, (\\))
@@ -23,13 +22,15 @@ import GHC.Stack
 import Optics
 import Prelude hiding (lookup)
 
-inferExpr :: (MonadError String m, HasCallStack, ?effCtx :: EffCtx, ?tyCtx :: TyCtx) => Expr -> m TySchema
+inferExpr
+  :: (MonadError String m, HasCallStack, ?effCtx :: EffCtx, ?tyCtx :: TyCtx)
+  => Expr -> m TySchema
 inferExpr = \case
   Const _ ->
     pure $ emptyTySchema $ TyCtor MkTyCtor { name = "Int", lt = LtFree, args = [] }
-  Var name -> ?tyCtx `lookup` Tagged @"var" name
+  Var name -> ?tyCtx `lookup` name
   TApp MkTApp { lhs = Var varName, ltArgs, tyArgs } -> do
-    MkTySchema { ltParams, tyParams, ty } <- ?tyCtx `lookup` Tagged @"var" varName
+    MkTySchema { ltParams, tyParams, ty } <- ?tyCtx `lookup` varName
     ltSubst <- mkSubst ltParams ltArgs
     tySubst <- mkSubst (toListOf (each % #name) tyParams) tyArgs
     let bounds = ltSubst @ toListOf (each % #bound) tyParams
@@ -43,7 +44,7 @@ inferExpr = \case
     res <- inferExpr body >>= ensureMonoTy
     let boundVars = foldMapOf (folded % #name) Set.singleton (ctxParams <> params)
     let freeVarNames = freeVars body \\ boundVars
-    freeVarsSchemas <- mapM ((?tyCtx `lookup`) . Tagged @"var") (Set.toList freeVarNames)
+    freeVarsSchemas <- mapM (?tyCtx `lookup`) (Set.toList freeVarNames)
     freeLts <- mconcat <$> mapM (`lifetimesOn` PositivePos) freeVarsSchemas
     let capturingLt = LtIntersect $ Set.toList freeLts
     resLts <- emptyTySchema res `lifetimesOn` PositivePos
@@ -131,7 +132,7 @@ inferExpr = \case
     unless (#lt % only LtLocal `has` effTy) $
       throwError "Capabilities can only have local lifetime"
     let capCtx = TyCtxCap MkTyCtxCap { name = capName, monoTy = TyCtor effTy }
-    resTy <- ensureMonoTy =<< let ?tyCtx = capCtx : ?tyCtx in inferExpr body
+    resTy <- let ?tyCtx = capCtx : ?tyCtx in inferExpr body >>= ensureMonoTy
     resLts <- emptyTySchema resTy `lifetimesOn` PositivePos
     resFv <- (<>) <$> resTy `freeLtVarsOn` PositivePos <*> resTy `freeLtVarsOn` NegativePos
     when (LtLocal `Set.member` resLts) $
@@ -154,10 +155,10 @@ inferExpr = \case
       let opParamCtx = TyCtxVar <$> zipWith MkTyCtxVar paramNames (emptyTySchema <$> params)
       let resumeCtx = TyCtxVar MkTyCtxVar
             { name = "resume", tySchema = emptyTySchema $ TyFun MkTyFun
-                { ctx = [], lt = LtFree, args = [opResTy], res = resTy
-                }
+                { ctx = [], lt = LtFree, args = [opResTy], res = resTy }
             }
-      opRetTy <- ensureMonoTy =<< let ?tyCtx = opParamCtx ++ resumeCtx : ?tyCtx in inferExpr (subst @ body)
+      opRetTy <- let ?tyCtx = opParamCtx ++ resumeCtx : ?tyCtx in
+        inferExpr (subst @ body) >>= ensureMonoTy
       unless (opRetTy == resTy) $
         throwError $ "Operation " <> opName <> " return type " <> show opRetTy <> " mismatch"
     pure $ emptyTySchema resTy
@@ -226,7 +227,7 @@ freeVars = \case
 
 typesOf :: MonadError String m => TyCtx -> Set VarName -> m (Set TySchema)
 typesOf tyCtx (Set.toList -> vars) =
-  Set.fromList <$> mapM ((tyCtx `lookup`) . Tagged @"var") vars
+  Set.fromList <$> mapM (tyCtx `lookup`) vars
 
 data PositionSign = PositivePos | NegativePos deriving Eq
 
@@ -241,11 +242,7 @@ freeLtVarsOn ty expectedSign = ty
   & (`lifetimesOn` expectedSign)
   & fmap (foldMap extractVars)
   where
-    extractVars = \case
-      LtVar name -> Set.singleton name
-      LtLocal -> Set.empty
-      LtFree -> Set.empty
-      LtIntersect lts -> foldMap extractVars lts
+    extractVars = toSetOf (subTrees % folded % _LtVar)
 
 lifetimesOn
   :: (HasCallStack, MonadError String m, ?tyCtx :: TyCtx)
@@ -259,8 +256,8 @@ lifetimesOn MkTySchema{ ltParams, tyParams, ty } expectedSign = do
       => MonoTy -> PositionSign -> m ()
     goOn ty currSign = case ty of
       TyVar name ->
-        unless (each % #name `elemOf` name $ tyParams) do
-          bound <- ?tyCtx `lookup` Tagged @"bound" name
+        unless (tyParams & each % #name `elemOf` name) do
+          bound <- ?tyCtx `lookupBound` name
           bound `goOn` currSign
       TyCtor MkTyCtor { lt, args } -> do
         -- Type parameters are invariant, include them in both ways.

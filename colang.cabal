@@ -97,7 +97,6 @@ library
     , parsec
     , pretty
     , random
-    , tagged
     , uniplate
   default-language: Haskell2010
 
@@ -167,7 +166,6 @@ executable colang-exe
     , parsec
     , pretty
     , random
-    , tagged
     , uniplate
   default-language: Haskell2010
 
@@ -243,6 +241,5 @@ test-suite colang-test
     , pretty
     , quickcheck-classes-base
     , random
-    , tagged
     , uniplate
   default-language: Haskell2010

@@ -7,6 +7,7 @@ import Data.Char
 import Data.Typeable
 import Data.Map (Map)
 import Text.PrettyPrint.GenericPretty
+import Optics
 
 type TyName = String
 type LtName = String
@@ -77,3 +78,5 @@ instance Top TyCtor where
   top = MkTyCtor { name = "Any", lt = LtLocal, args = [] }
 instance Top MonoTy where
   top = TyCtor top
+
+makePrisms ''Lt

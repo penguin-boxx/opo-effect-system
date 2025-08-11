@@ -4,7 +4,6 @@ import Common
 import Types
 
 import Data.Data
-import Data.Tagged
 import Data.List qualified as List
 import Data.Typeable
 import Prelude hiding (lookup)
@@ -60,8 +59,8 @@ data EffCtxEntry = MkEffCtxEntry
 class Lookup ctx key result | result -> ctx key where
   lookup :: HasCallStack => ctx -> key -> result
 
-instance MonadError String m => Lookup TyCtx (Tagged "var" VarName) (m TySchema) where
-  lookup tyCtx tagged@(Tagged targetName) = case tyCtx of
+instance MonadError String m => Lookup TyCtx VarName (m TySchema) where
+  lookup tyCtx targetName = case tyCtx of
     [] -> throwError $ "Name not found " <> targetName <> " in ctx " <> show tyCtx
     TyCtxVar MkTyCtxVar { name, tySchema } : _ | name == targetName -> pure tySchema
     TyCtxCap MkTyCtxCap { name, monoTy } : _ | name == targetName -> pure (emptyTySchema monoTy)
@@ -70,13 +69,13 @@ instance MonadError String m => Lookup TyCtx (Tagged "var" VarName) (m TySchema)
         { ltParams, tyParams
         , ty = TyFun MkTyFun { ctx = [], lt = LtFree, args = params, res = TyCtor res }
         }
-    _ : rest -> rest `lookup` tagged
+    _ : rest -> rest `lookup` targetName
 
-instance MonadError String m => Lookup TyCtx (Tagged "bound" VarName) (m MonoTy) where
-  lookup tyCtx tagged@(Tagged targetName) = case tyCtx of
+lookupBound :: MonadError String m => TyCtx -> VarName -> m MonoTy
+lookupBound tyCtx targetName = case tyCtx of
     [] -> throwError $ "Name not found " <> targetName <> " in ctx " <> show tyCtx
     TyCtxTy MkTyParam { name, bound } : _ | name == targetName -> pure bound
-    _ : rest -> rest `lookup` tagged
+    _ : rest -> rest `lookupBound` targetName
 
 instance Lookup TyCtx TyName [TyCtxCtor] where
   lookup tyCtx targetName =

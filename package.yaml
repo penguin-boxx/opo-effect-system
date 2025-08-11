@@ -28,7 +28,6 @@ dependencies:
   - optics
   - uniplate
   - parsec
-  - tagged
 
 default-extensions:
   - AllowAmbiguousTypes
