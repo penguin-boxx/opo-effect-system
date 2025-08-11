@@ -28,6 +28,7 @@ dependencies:
   - optics
   - uniplate
   - parsec
+  - tagged
 
 default-extensions:
   - AllowAmbiguousTypes
@@ -51,6 +52,7 @@ default-extensions:
   - FunctionalDependencies
   - GADTs
   - GeneralizedNewtypeDeriving
+  - ImplicitParams
   - ImportQualifiedPost
   - InstanceSigs
   - KindSignatures

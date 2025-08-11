@@ -15,7 +15,7 @@ let r = Some<Int>(1)
 
 let m = match Some<(Int) -> Int>(fun(x: Int) x) {
     case None() -> 1
-    case Some(x) -> x
+    case Some(f) -> f(42)
 }
 
 effect Reader<e> {

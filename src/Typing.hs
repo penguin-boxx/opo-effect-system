@@ -2,6 +2,7 @@ module Typing where
 
 import Common
 import Types
+import TypingCtx
 import Syntax
 import Subst
 
@@ -10,6 +11,7 @@ import Control.Monad.Except
 import Control.Monad.Writer
 import Control.Monad.Reader
 import Data.Foldable
+import Data.Tagged
 import Data.Function (fix)
 import Data.List qualified as List
 import Data.Set (Set, (\\))
@@ -19,96 +21,100 @@ import Data.Map qualified as Map
 import Debug.Trace
 import GHC.Stack
 import Optics
+import Prelude hiding (lookup)
 
-inferExpr :: MonadError String m => EffCtx -> TyCtx -> Expr -> m TySchema
-inferExpr effCtx tyCtx = \case
-  Const _ -> pure $ emptyTySchema $ TyCtor MkTyCtor { name = "Int", lt = LtFree, args = [] }
-  Var name -> tyCtx `tyCtxLookupSchema` name
+inferExpr :: (MonadError String m, HasCallStack, ?effCtx :: EffCtx, ?tyCtx :: TyCtx) => Expr -> m TySchema
+inferExpr = \case
+  Const _ ->
+    pure $ emptyTySchema $ TyCtor MkTyCtor { name = "Int", lt = LtFree, args = [] }
+  Var name -> ?tyCtx `lookup` Tagged @"var" name
   TApp MkTApp { lhs = Var varName, ltArgs, tyArgs } -> do
-    MkTySchema { ltParams, tyParams, ty } <- tyCtx `tyCtxLookupSchema` varName
+    MkTySchema { ltParams, tyParams, ty } <- ?tyCtx `lookup` Tagged @"var" varName
     ltSubst <- mkSubst ltParams ltArgs
     tySubst <- mkSubst (toListOf (each % #name) tyParams) tyArgs
     let bounds = ltSubst @ toListOf (each % #bound) tyParams
-    checkBounds tyCtx tyArgs bounds
+    checkBounds tyArgs bounds
     pure $ emptyTySchema $ ltSubst @ (tySubst @ ty)
   Lam MkLam { ctxParams, params, body } -> do
-    let tyCtx' =
+    let ?tyCtx =
           map (paramsToTyCtxEntry True) ctxParams ++
           map (paramsToTyCtxEntry False) params ++
-          tyCtx
-    res <- ensureMonoTy =<< inferExpr effCtx tyCtx' body
+          ?tyCtx
+    res <- inferExpr body >>= ensureMonoTy
     let boundVars = foldMapOf (folded % #name) Set.singleton (ctxParams <> params)
     let freeVarNames = freeVars body \\ boundVars
-    freeVarsSchemas <- mapM (tyCtxLookupSchema tyCtx') (Set.toList freeVarNames)
-    freeLts <- mconcat <$> mapM (lifetimes tyCtx' PositivePos) freeVarsSchemas
+    freeVarsSchemas <- mapM ((?tyCtx `lookup`) . Tagged @"var") (Set.toList freeVarNames)
+    freeLts <- mconcat <$> mapM (`lifetimesOn` PositivePos) freeVarsSchemas
     let capturingLt = LtIntersect $ Set.toList freeLts
-    resLts <- lifetimes tyCtx' PositivePos (emptyTySchema res)
+    resLts <- emptyTySchema res `lifetimesOn` PositivePos
     when (LtLocal `Set.member` resLts) $
       throwError "Tracked value escapes via return value"
     pure $ emptyTySchema $ TyFun MkTyFun
       { ctx = toListOf (each % #ty) ctxParams, lt = capturingLt
       , args = toListOf (each % #ty) params, res }
   TLam MkTLam { ltParams, tyParams, body } -> do
-    ty <- ensureMonoTy =<< inferExpr effCtx (fmap TyCtxTy tyParams ++ tyCtx) body
+    let ?tyCtx = fmap TyCtxTy tyParams ++ ?tyCtx
+    ty <- inferExpr body >>= ensureMonoTy
     pure MkTySchema { ltParams, tyParams, ty }
   App MkApp { callee, ctxArgs, args } -> do
-    (expectedCtxArgs, expectedArgs, res) <- inferExpr effCtx tyCtx callee >>= ensureMonoTy >>= \case
-      TyFun MkTyFun { ctx, args, res } -> pure (ctx, args, res)
-      other -> throwError $ "Expected function, got " <> show other
-    actualCtxArgs <- mapM (ensureMonoTy <=< inferExpr effCtx tyCtx) ctxArgs
-    actualArgs <- mapM (ensureMonoTy <=< inferExpr effCtx tyCtx) args
+    MkTyFun { ctx = expectedCtxArgs, args = expectedArgs, res } <-
+      inferExpr callee >>= ensureMonoTy >>= \case
+        TyFun fun -> pure fun
+        other -> throwError $ "Expected function, got " <> show other
+    actualCtxArgs <- mapM (ensureMonoTy <=< inferExpr) ctxArgs
+    actualArgs <- mapM (ensureMonoTy <=< inferExpr) args
     unless (length actualCtxArgs == length expectedCtxArgs) $
       throwError "Ctx arguments number mismatch"
     unless (length actualArgs == length expectedArgs) $
       throwError "Arguments number mismatch"
     forM_ (zip (actualCtxArgs <> actualArgs) (expectedCtxArgs <> expectedArgs)) \(actual, expected) ->
-      unless (subTyOf tyCtx actual expected) $
+      unless (actual `subTyOf` expected) $
         throwError $ "Type mismatch: " <> show actual <> " is not a subtype of " <> show expected
     pure $ emptyTySchema res
   TApp MkTApp { lhs, ltArgs, tyArgs } -> do
-    MkTySchema { ltParams, tyParams, ty } <- inferExpr effCtx tyCtx lhs
+    MkTySchema { ltParams, tyParams, ty } <- inferExpr lhs
     unless (length tyParams == length tyArgs) $
       throwError "Type arguments number mismatch"
     ltSubst <- mkSubst ltParams ltArgs
     tyParamNames <- forM (zip tyParams tyArgs) \(MkTyParam { name, bound }, arg) -> do
-      unless (subTyOf tyCtx arg (ltSubst @ bound)) $
+      unless (arg `subTyOf` ltSubst @ bound) $
         throwError $ "Type argument " <> show arg <> " is not a subtype of bound " <> show bound
       pure name
     tySubst <- mkSubst tyParamNames tyArgs
     pure $ emptyTySchema $ ltSubst @ (tySubst @ ty)
   Match MkMatch { scrutinee, branches } -> do
     MkTyCtor { name = tyCtor, lt, args = tyArgs } <-
-      inferExpr effCtx tyCtx scrutinee >>= ensureMonoTy >>= \case
+      inferExpr scrutinee >>= ensureMonoTy >>= \case
         TyCtor ctor -> pure ctor -- todo check optics for this
         other -> throwError $ "Expected type ctor, got " <> show other
-    let ctorCandidates = tyCtx `tyCtxLookupCtors` tyCtor
+    let ctorCandidates = ?tyCtx `lookup` tyCtor
     resTys <- forM branches \MkBranch{ ctorName, varPatterns, body } -> do
       MkTyCtxCtor { tyParams, params } <-
-        case find (\MkTyCtxCtor { name } -> name == ctorName) ctorCandidates of
+        case List.find @[] (\MkTyCtxCtor { name } -> name == ctorName) ctorCandidates of
           Nothing -> throwError $ "Ctor " <> ctorName <> " do not have expected type"
           Just ctor -> pure ctor
       unless (length varPatterns == length params) $
         throwError "Number of patterns mismatch"
       tySubst <- mkSubst (toListOf (each % #name) tyParams) tyArgs
       params' <- forM (fmap (tySubst @) params) \param -> do
-        posLts <- Set.toList <$> freeLtVars tyCtx PositivePos param
-        negLts <- Set.toList <$> freeLtVars tyCtx NegativePos param
+        posLts <- Set.toList <$> param `freeLtVarsOn` PositivePos
+        negLts <- Set.toList <$> param `freeLtVarsOn` NegativePos
         posSubst <- mkSubst posLts (replicate (length posLts) lt)
         negSubst <- mkSubst negLts (replicate (length negLts) LtFree)
         pure $ posSubst @ (negSubst @ param) -- todo check order
       let mkCtxVar name param = TyCtxVar MkTyCtxVar { name, tySchema = emptyTySchema param }
-      let tyCtx' = zipWith mkCtxVar varPatterns params' ++ tyCtx
-      inferExpr effCtx tyCtx' body
+      let ?tyCtx = zipWith mkCtxVar varPatterns params' ++ ?tyCtx
+      inferExpr body
     unless (and $ zipWith (==) resTys (drop 1 resTys)) $
-      throwError "Branch result types shouls be equal" -- todo LUB
+      throwError $ "Branch result types shouls be equal, but they are\n" <> unlines (map show resTys) -- todo LUB
     pure $ head resTys
   Perform MkPerform { opName, cap, tyArgs = opTyArgs, args } -> do
     MkTyCtor { name = effName, args = tyArgs } <-
-      inferExpr effCtx tyCtx cap >>= ensureMonoTy >>= \case
+      inferExpr cap >>= ensureMonoTy >>= \case
         TyCtor ctor -> pure ctor
         other -> throwError $ "Expected type constructor, got " <> show other
-    argTys <- mapM (ensureMonoTy <=< inferExpr effCtx tyCtx) args
-    MkEffCtxEntry { tyParams, ops } <- effCtx `effCtxLookup` effName
+    argTys <- mapM (ensureMonoTy <=< inferExpr) args
+    MkEffCtxEntry { tyParams, ops } <- ?effCtx `lookup` effName
     MkOpSig { tyParams = opTyParams, params, res } <- case ops !? opName of
       Nothing -> throwError $ "Effect " <> effName <> " do not include operation " <> opName
       Just op -> pure op
@@ -118,20 +124,20 @@ inferExpr effCtx tyCtx = \case
     unless (length params == length argTys) $
       throwError "Operation arguments number mismatch"
     forM_ (zip params argTys) \(param, arg) ->
-      unless (subTyOf tyCtx arg (subst @ param)) $
+      unless (arg `subTyOf` subst @ param) $
         throwError "Operation argument type mismatch"
     pure $ emptyTySchema $ subst @ res
   Handle MkHandle { capName, effTy, handler, body } -> do
     unless (#lt % only LtLocal `has` effTy) $
       throwError "Capabilities can only have local lifetime"
     let capCtx = TyCtxCap MkTyCtxCap { name = capName, monoTy = TyCtor effTy }
-    resTy <- ensureMonoTy =<< inferExpr effCtx (capCtx : tyCtx) body
-    resLts <- lifetimes tyCtx PositivePos (emptyTySchema resTy)
-    resFv <- (<>) <$> freeLtVars tyCtx PositivePos resTy <*> freeLtVars tyCtx NegativePos resTy
+    resTy <- ensureMonoTy =<< let ?tyCtx = capCtx : ?tyCtx in inferExpr body
+    resLts <- emptyTySchema resTy `lifetimesOn` PositivePos
+    resFv <- (<>) <$> resTy `freeLtVarsOn` PositivePos <*> resTy `freeLtVarsOn` NegativePos
     when (LtLocal `Set.member` resLts) $
       throwError "Tracked value is escaping out of the handler body"
     let MkTyCtor { name = effName, args = effTyArgs } = effTy
-    MkEffCtxEntry { tyParams = effTyParams, ops } <- effCtx `effCtxLookup` effName
+    MkEffCtxEntry { tyParams = effTyParams, ops } <- ?effCtx `lookup` effName
     subst <- mkSubst effTyParams effTyArgs
     unless (length handler == Map.size ops) $
       throwError "Wrong number of implemented operations"
@@ -151,33 +157,34 @@ inferExpr effCtx tyCtx = \case
                 { ctx = [], lt = LtFree, args = [opResTy], res = resTy
                 }
             }
-      opRetTy <- ensureMonoTy =<< inferExpr effCtx (opParamCtx ++ resumeCtx : tyCtx) (subst @ body)
+      opRetTy <- ensureMonoTy =<< let ?tyCtx = opParamCtx ++ resumeCtx : ?tyCtx in inferExpr (subst @ body)
       unless (opRetTy == resTy) $
         throwError $ "Operation " <> opName <> " return type " <> show opRetTy <> " mismatch"
     pure $ emptyTySchema resTy
   unsupported -> error $ "Unsupported construct: " <> show unsupported
 
 -- todo generalize and use everywhere
-checkBounds :: MonadError String m => TyCtx -> [MonoTy] -> [MonoTy] -> m ()
-checkBounds tyCtx args bounds = do
+checkBounds :: (MonadError String m, ?tyCtx :: TyCtx) => [MonoTy] -> [MonoTy] -> m ()
+checkBounds args bounds = do
   unless (length args == length bounds) $
     throwError "Arguments and parameters number mismatch"
   forM_ (zip args bounds) \(arg, bound) ->
-    unless (subTyOf tyCtx arg bound) $
+    unless (arg `subTyOf` bound) $
       throwError $ "Type argument " <> show arg <> " do not satisfy bound " <> show bound
 
-subTyOf :: TyCtx -> MonoTy -> MonoTy -> Bool
-subTyOf tyCtx = curry \case
+infix 2 `subTyOf`
+subTyOf :: (?tyCtx :: TyCtx) => MonoTy -> MonoTy -> Bool
+subTyOf = curry \case
   (TyVar name1, TyVar name2) -> name1 == name2;
   ( TyCtor MkTyCtor { name = ctor1, lt = lt1, args = args1 },
     TyCtor MkTyCtor { name = ctor2, lt = lt2, args = args2 } ) ->
     ctor1 `subTyCtorOf` ctor2 && lt1 `subLtOf` lt2 && args1 == args2
   ( TyFun MkTyFun { lt = lt1, args = args1, res = res1 },
     TyFun MkTyFun { lt = lt2, args = args2, res = res2 } ) ->
-    and $ zipWith (subTyOf tyCtx) args2 args1 ++
+    and $ zipWith subTyOf args2 args1 ++
       [ lt1 `subLtOf` lt2
       , length args1 == length args2
-      , subTyOf tyCtx res1 res2
+      , res1 `subTyOf` res2
       ] -- TODO ctx
   ( TyFun MkTyFun { lt = lt1 },
     TyCtor MkTyCtor { name = "Any", lt = lt2 } ) -> lt1 `subLtOf` lt2
@@ -192,38 +199,6 @@ subLtOf = curry \case
   (LtIntersect lts, lt) -> all (`subLtOf` lt) lts
   (lt, LtIntersect lts) -> any (lt `subLtOf`) lts
   (lt1, lt2) -> lt1 == LtFree || lt2 == LtLocal
-
-tyCtxLookupSchema :: MonadError String m => TyCtx -> VarName -> m TySchema
-tyCtxLookupSchema tyCtx targetName = case tyCtx of
-  [] -> throwError $ "Name not found " <> targetName <> " in ctx " <> show tyCtx
-  TyCtxVar MkTyCtxVar { name, tySchema } : _ | name == targetName -> pure tySchema
-  TyCtxCap MkTyCtxCap { name, monoTy } : _ | name == targetName -> pure (emptyTySchema monoTy)
-  TyCtxCtor MkTyCtxCtor { name, ltParams, tyParams, params, res } : _ | name == targetName ->
-    pure MkTySchema
-      { ltParams, tyParams
-      , ty = TyFun MkTyFun { ctx = [], lt = LtFree, args = params, res = TyCtor res }
-      }
-  _ : rest -> rest `tyCtxLookupSchema` targetName
-
-tyCtxLookupBound :: (HasCallStack, MonadError String m) => TyCtx -> TyName -> m MonoTy
-tyCtxLookupBound tyCtx targetName = case tyCtx of
-  [] -> throwError $ "Name not found " <> targetName <> " in ctx " <> show tyCtx <>
-    " from " <> prettyCallStack callStack
-  TyCtxTy MkTyParam { name, bound } : _ | name == targetName -> pure bound
-  _ : rest -> rest `tyCtxLookupBound` targetName
-
-tyCtxLookupCtors :: TyCtx -> TyName -> [TyCtxCtor]
-tyCtxLookupCtors tyCtx targetName =
-  [ ctor
-  | TyCtxCtor ctor@MkTyCtxCtor { res = MkTyCtor { name } } <- tyCtx
-  , name == targetName
-  ]
-
-effCtxLookup :: MonadError String m => EffCtx -> TyName -> m EffCtxEntry
-effCtxLookup effCtx targetName =
-  case find (\MkEffCtxEntry { effName } -> effName == targetName) effCtx of
-    Nothing -> throwError $ "Effect not found " <> targetName
-    Just entry -> pure entry
 
 paramsToTyCtxEntry :: Bool -> Param -> TyCtxEntry
 paramsToTyCtxEntry contextual MkParam { name, ty }
@@ -251,46 +226,50 @@ freeVars = \case
 
 typesOf :: MonadError String m => TyCtx -> Set VarName -> m (Set TySchema)
 typesOf tyCtx (Set.toList -> vars) =
-  Set.fromList <$> mapM (tyCtxLookupSchema tyCtx) vars
+  Set.fromList <$> mapM ((tyCtx `lookup`) . Tagged @"var") vars
 
 data PositionSign = PositivePos | NegativePos deriving Eq
 
 changeSign :: PositionSign -> PositionSign
 changeSign = \case PositivePos -> NegativePos; NegativePos -> PositivePos
 
-freeLtVars
-  :: (HasCallStack, MonadError String m)
-  => TyCtx -> PositionSign -> MonoTy -> m (Set LtName)
-freeLtVars tyCtx expectedSign =
-  fmap (foldMap f) . lifetimes tyCtx expectedSign . emptyTySchema
+freeLtVarsOn
+  :: (HasCallStack, MonadError String m, ?tyCtx :: TyCtx)
+  => MonoTy -> PositionSign -> m (Set LtName)
+freeLtVarsOn ty expectedSign = ty
+  & emptyTySchema
+  & (`lifetimesOn` expectedSign)
+  & fmap (foldMap extractVars)
   where
-    f = \case
+    extractVars = \case
       LtVar name -> Set.singleton name
       LtLocal -> Set.empty
       LtFree -> Set.empty
-      LtIntersect lts -> foldMap f lts
+      LtIntersect lts -> foldMap extractVars lts
 
-lifetimes :: (HasCallStack, MonadError String m) => TyCtx -> PositionSign -> TySchema -> m (Set Lt)
-lifetimes tyCtx expectedSign MkTySchema { ltParams, tyParams, ty } = do
-  allLts <- execWriterT $ lifetimesMono PositivePos ty
+lifetimesOn
+  :: (HasCallStack, MonadError String m, ?tyCtx :: TyCtx)
+  => TySchema -> PositionSign -> m (Set Lt)
+lifetimesOn MkTySchema{ ltParams, tyParams, ty } expectedSign = do
+  allLts <- execWriterT $ ty `goOn` PositivePos
   pure $ foldr (Set.delete . LtVar) allLts ltParams
   where
-    lifetimesMono
+    goOn
       :: (MonadWriter (Set Lt) m, MonadError String m)
-      => PositionSign -> MonoTy -> m ()
-    lifetimesMono currSign = \case
+      => MonoTy -> PositionSign -> m ()
+    goOn ty currSign = case ty of
       TyVar name ->
         unless (each % #name `elemOf` name $ tyParams) do
-          bound <- tyCtx `tyCtxLookupBound` name
-          lifetimesMono currSign bound
+          bound <- ?tyCtx `lookup` Tagged @"bound" name
+          bound `goOn` currSign
       TyCtor MkTyCtor { lt, args } -> do
         -- Type parameters are invariant, include them in both ways.
-        forM_ args (lifetimesMono currSign)
-        forM_ args (lifetimesMono $ changeSign currSign)
+        forM_ args (`goOn` currSign)
+        forM_ args (`goOn` changeSign currSign)
         when (currSign == expectedSign) $
           tell $ Set.singleton lt
       TyFun MkTyFun { ctx, lt, args, res } -> do
-        forM_ (ctx <> args) (lifetimesMono (changeSign currSign))
+        forM_ (ctx <> args) (`goOn` changeSign currSign)
         when (currSign == expectedSign) $
           tell $ Set.singleton lt
-        lifetimesMono currSign res
+        res `goOn` currSign

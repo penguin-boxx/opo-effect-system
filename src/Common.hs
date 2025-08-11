@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC "-Wno-orphans" #-}
+{-# LANGUAGE UndecidableInstances #-} -- for apply collection instance
 
 module Common where
 
@@ -28,3 +29,9 @@ universe = to Uniplate.universe
 
 class From from to where
   from :: from -> to
+
+class Apply f arg res | f arg -> res where
+  (@) :: f -> arg -> res
+
+instance (Apply f arg res, Functor collection) => Apply f (collection arg) (collection res) where
+  f @ args = fmap (f @) args

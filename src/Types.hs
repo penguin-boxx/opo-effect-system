@@ -57,50 +57,6 @@ data TySchema = MkTySchema
   deriving anyclass Out
   deriving Show via OutShow TySchema
 
-type TyCtx = [TyCtxEntry]
-
-data TyCtxEntry
-  = TyCtxVar TyCtxVar
-  | TyCtxCap TyCtxCap
-  | TyCtxTy TyParam
-  | TyCtxCtor TyCtxCtor
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow TyCtxEntry
-
-data TyCtxVar = MkTyCtxVar { name :: VarName, tySchema :: TySchema }
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow TyCtxVar
-
-data TyCtxCap = MkTyCtxCap { name :: VarName, monoTy :: MonoTy }
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow TyCtxCap
-
-data TyCtxCtor = MkTyCtxCtor
-  { name :: CtorName
-  , ltParams :: [LtName]
-  , tyParams :: [TyParam]
-  , params :: [MonoTy]
-  , res :: TyCtor
-  }
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow TyCtxCtor
-
-type EffCtx = [EffCtxEntry]
-
-data EffCtxEntry = MkEffCtxEntry
-  { capCtor :: CtorName
-  , tyParams :: [TyName]
-  , ops :: EffSig
-  , effName :: TyName
-  }
-  deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow EffCtxEntry
-
 type EffSig = Map OpName OpSig
 
 data OpSig = MkOpSig

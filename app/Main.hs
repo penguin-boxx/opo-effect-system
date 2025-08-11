@@ -6,6 +6,7 @@ import Syntax
 import Semantics
 import Types
 import Typing
+import TypingCtx
 
 import Control.Monad
 import Control.Monad.Except
@@ -31,8 +32,8 @@ main = getArgs >>= \case
         [ do
             -- Bounds of generics should not affect resulting lifetime.
             let bound = TyCtor MkTyCtor { name = "Any", lt = LtFree, args = [] }
-            let ltTyCtx = [TyCtxTy MkTyParam { name, bound } | name <- tyParams]
-            paramLts <- fold <$> mapM (lifetimes ltTyCtx PositivePos . emptyTySchema) params
+            let ?tyCtx = [TyCtxTy MkTyParam { name, bound } | name <- tyParams]
+            paramLts <- fold <$> mapM ((`lifetimesOn` PositivePos) . emptyTySchema) params
             pure $ TyCtxCtor MkTyCtxCtor
               { name = ctorName
               , ltParams
@@ -47,12 +48,13 @@ main = getArgs >>= \case
         | DataDecl MkDataDecl { tyName, tyParams, dataCtors } <- prog
         , MkDataCtor { ctorName, ltParams, params } <- dataCtors
         ]
-      let effCtx =
+      let ?tyCtx = tyCtx
+      let ?effCtx =
             [ MkEffCtxEntry { capCtor = effName <> "K", tyParams, ops, effName }
             | EffDecl MkEffDecl { effName, tyParams, ops } <- prog
             ]
       let expr = head [body | VarDecl MkVarDecl { name, body } <- prog, name == target]
-      inferExpr effCtx tyCtx expr
+      inferExpr expr
     case result of
       Left err -> putStrLn $ "Type error: " <> err
       Right ty -> putStrLn $ "Type: " <> show ty

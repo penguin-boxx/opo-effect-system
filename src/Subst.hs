@@ -1,5 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
-
 module Subst where
 
 import Common
@@ -11,13 +9,6 @@ import Control.Monad.Except
 import Data.Map (Map, (!?))
 import Data.Map qualified as Map
 import Data.Maybe
-
-
-class Apply f arg res | f arg -> res where
-  (@) :: f -> arg -> res
-
-instance (Apply f arg res, Functor collection) => Apply f (collection arg) (collection res) where
-  f @ args = fmap (f @) args
 
 
 class DoSubst target where
@@ -74,7 +65,7 @@ instance DoSubst target => Apply (Subst target) Expr Expr where
     RtHandler MkRtHandler { marker, body } -> RtHandler MkRtHandler { marker, body = f @ body }
 
 instance DoSubst target => Apply (Subst target) HandlerEntry HandlerEntry where
-  f @ MkHandlerEntry { opName, body } = MkHandlerEntry { opName, body = f @ body }
+  f @ MkHandlerEntry { opName, paramNames, body } = MkHandlerEntry { opName, paramNames, body = f @ body }
 
 instance DoSubst target => Apply (Subst target) Param Param where
   f @ MkParam { name, ty } = MkParam { name, ty = f @ ty }

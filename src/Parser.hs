@@ -160,10 +160,9 @@ fun = do
   tyParams <- option [] $ inAngles $ list (tok ",") tyParam
   params <- inParens $ list (tok ",") param
   body <- expr
-  pure $ TLam MkTLam
-    { ltParams, tyParams
-    , body = Lam MkLam { ctxParams, params, body }
-    }
+  let lam = Lam MkLam { ctxParams, params, body }
+  pure $ if null ltParams && null tyParams then lam else
+    TLam MkTLam { ltParams, tyParams, body = lam }
 
 param :: Parser Param
 param = do
