@@ -79,4 +79,5 @@ instance Top TyCtor where
 instance Top MonoTy where
   top = TyCtor top
 
+makePrisms ''MonoTy
 makePrisms ''Lt

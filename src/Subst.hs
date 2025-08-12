@@ -30,8 +30,14 @@ newtype Subst target = Subst { getSubst :: Map String target }
 mkSubst :: MonadError String m => [String] -> [target] -> m (Subst target)
 mkSubst names target = do
   unless (length names == length target) $
-    throwError "Unexpected number of lifetime parameters"
+    throwError "Unexpected number of parameters"
   pure $ Subst $ Map.fromList $ zip names target
+
+mkSubst2 :: MonadError String m => [String] -> [target] -> [String] -> [target] -> m (Subst target)
+mkSubst2 names1 target1 names2 target2 = do
+  unless (length names1 == length target1 && length names2 == length target2) $
+    throwError "Unexpected number of parameters"
+  pure $ Subst $ Map.fromList $ zip names1 target1 ++ zip names2 target2
 
 instance DoSubst target => Apply (Subst target) Lt Lt where
   f @ arg = case arg of
@@ -54,7 +60,7 @@ instance DoSubst target => Apply (Subst target) Expr Expr where
     Const _ -> arg
     Plus lhs rhs -> Plus (f @ lhs) (f @ rhs)
     Var _ -> arg
-    TLam {} -> error "TLam is not supported"
+    TLam {} -> error "TLam is not supported" -- TODO
     TApp MkTApp { lhs, ltArgs, tyArgs } -> TApp MkTApp { lhs = f @ lhs, ltArgs = f @ ltArgs, tyArgs = f @ tyArgs }
     CapCtor MkCapCtor { name, tyArgs, marker, handler } -> CapCtor MkCapCtor { name, tyArgs = f @ tyArgs, marker, handler = f @ handler }
     Lam MkLam { ctxParams, params, body } -> Lam MkLam { ctxParams = f @ ctxParams, params = f @ params, body = f @ body }
@@ -72,3 +78,6 @@ instance DoSubst target => Apply (Subst target) Param Param where
 
 instance DoSubst target => Apply (Subst target) Branch Branch where
   f @ MkBranch { ctorName, varPatterns, body } = MkBranch { ctorName, varPatterns, body = f @ body }
+
+instance DoSubst target => Apply (Subst target) OpSig OpSig where
+  f @ MkOpSig { tyParams, params, res } = MkOpSig { tyParams, params, res = f @ res } -- TODO
