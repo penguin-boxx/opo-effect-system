@@ -48,13 +48,13 @@ inferExpr = \case
           map (paramsToTyCtxEntry False) params ++
           ?tyCtx
     res <- inferExpr body >>= ensureMonoTy
-    resLts <- emptyTySchema res `lifetimesOn` PositivePos
+    let resLts = let ?tyCtx = [] in emptyTySchema res `lifetimesOn` PositivePos
     when (LtLocal `Set.member` resLts) $
       throwError $ "Tracked value escapes via return value of type " <> show res
     let boundVars = toSetOf (folded % #name) (ctxParams <> params)
     let freeVarNames = freeVars body \\ boundVars
     freeVarsSchemas <- mapM (?tyCtx `lookup`) (Set.toList freeVarNames)
-    freeLts <- mconcat <$> mapM (`lifetimesOn` PositivePos) freeVarsSchemas
+    let freeLts = foldMap (`lifetimesOn` PositivePos) freeVarsSchemas
     pure $ emptyTySchema $ TyFun MkTyFun
       { ctx = toListOf (each % #ty) ctxParams
       , args = toListOf (each % #ty) params
@@ -90,8 +90,8 @@ inferExpr = \case
         throwError $ "Number of var patterns mismatch for " <> ctorName
       tySubst <- mkSubst (toListOf (each % #name) tyParams) tyArgs
       params' <- forM (fmap (tySubst @) params) \param -> do
-        posLts <- Set.toList <$> param `freeLtVarsOn` PositivePos
-        negLts <- Set.toList <$> param `freeLtVarsOn` NegativePos
+        let posLts = Set.toList $ param `freeLtVarsOn` PositivePos
+        let negLts = Set.toList $ param `freeLtVarsOn` NegativePos
         posSubst <- mkSubst posLts (replicate (length posLts) lt)
         negSubst <- mkSubst negLts (replicate (length negLts) LtFree)
         pure $ posSubst @ (negSubst @ param) -- todo check order
@@ -124,10 +124,10 @@ inferExpr = \case
       throwError "Capabilities can only have local lifetime"
     let capCtx = TyCtxCap MkTyCtxCap { name = capName, monoTy = TyCtor effTy }
     resTy <- let ?tyCtx = capCtx : ?tyCtx in inferExpr body >>= ensureMonoTy
-    resLts <- emptyTySchema resTy `lifetimesOn` PositivePos
+    let resLts = let ?tyCtx = [] in emptyTySchema resTy `lifetimesOn` PositivePos
     when (LtLocal `Set.member` resLts) $
       throwError "Tracked value is escaping out of the handler body"
-    resFv <- (<>) <$> resTy `freeLtVarsOn` PositivePos <*> resTy `freeLtVarsOn` NegativePos
+    let resFv = resTy `freeLtVarsOn` PositivePos <> resTy `freeLtVarsOn` NegativePos
     MkEffCtxEntry { tyParams = effTyParams, ops } <- ?effCtx `lookup` effName
     subst <- mkSubst effTyParams effTyArgs
     unless (length handler == Map.size ops) $
@@ -144,7 +144,7 @@ inferExpr = \case
       let opParamCtx = TyCtxVar <$> zipWith MkTyCtxVar paramNames (emptyTySchema <$> params)
       let resumeCtx = TyCtxVar MkTyCtxVar
             { name = "resume", tySchema = emptyTySchema $ TyFun MkTyFun
-                { ctx = [], lt = LtFree, args = [opResTy], res = resTy }
+                { ctx = [], lt = LtFree, args = [opResTy], res = resTy } -- TODO cont lifetime
             }
       opRetTy <- let ?tyCtx = opParamCtx ++ resumeCtx : ?tyCtx in
         inferExpr (subst @ body) >>= ensureMonoTy
@@ -211,36 +211,35 @@ changeSign :: PositionSign -> PositionSign
 changeSign = \case PositivePos -> NegativePos; NegativePos -> PositivePos
 
 freeLtVarsOn
-  :: (HasCallStack, MonadError String m, ?tyCtx :: TyCtx)
-  => MonoTy -> PositionSign -> m (Set LtName)
+  :: (HasCallStack, ?tyCtx :: TyCtx)
+  => MonoTy -> PositionSign -> Set LtName
 freeLtVarsOn ty expectedSign = ty
   & emptyTySchema
   & (`lifetimesOn` expectedSign)
-  & fmap (foldMap extractVars)
+  & foldMap extractVars
   where
     extractVars = toSetOf (subTrees % folded % _LtVar)
 
 lifetimesOn
-  :: (HasCallStack, MonadError String m, ?tyCtx :: TyCtx)
-  => TySchema -> PositionSign -> m (Set Lt)
-lifetimesOn MkTySchema{ ltParams, tyParams, ty } expectedSign = do
-  allLts <- execWriterT $ ty `goOn` PositivePos
-  pure $ foldr (Set.delete . LtVar) allLts ltParams
+  :: (HasCallStack, ?tyCtx :: TyCtx)
+  => TySchema -> PositionSign -> Set Lt
+lifetimesOn MkTySchema{ ltParams, tyParams, ty } expectedSign =
+  let allLts = execWriter $ ty `goOn` PositivePos in
+  foldr (Set.delete . LtVar) allLts ltParams
   where
-    goOn
-      :: (MonadWriter (Set Lt) m, MonadError String m)
-      => MonoTy -> PositionSign -> m ()
+    goOn :: MonadWriter (Set Lt) m => MonoTy -> PositionSign -> m ()
     goOn ty currSign = case ty of
       TyVar name ->
-        unless (tyParams & each % #name `elemOf` name) do
-          bound <- ?tyCtx `lookupBound` name
-          bound `goOn` currSign
+        unless (tyParams & each % #name `elemOf` name) $
+          runExceptT (?tyCtx `lookupBound` name) >>= \case
+            Left _ -> pure () -- ignore bounds of unknown type parameters
+            Right bound -> bound `goOn` currSign
       TyCtor MkTyCtor { lt, args } -> do
+        when (currSign == expectedSign) $
+          tell $ Set.singleton lt
         -- Type parameters are invariant, include them in both ways.
         forM_ args (`goOn` currSign)
         forM_ args (`goOn` changeSign currSign)
-        when (currSign == expectedSign) $
-          tell $ Set.singleton lt
       TyFun MkTyFun { ctx, lt, args, res } -> do
         forM_ (ctx <> args) (`goOn` changeSign currSign)
         when (currSign == expectedSign) $

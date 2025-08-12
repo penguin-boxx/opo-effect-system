@@ -9,6 +9,8 @@ let compose = fun
     (f: (b)'l4 -> c, g: (a)'l5 -> b)
     fun(x : a) f(g(x))
 
+let id = fun<a <: Any'local>(x: a) x
+
 let f = fun(y: Int) fun(x: Int) y
 
 let r = Some<Int>(1)
