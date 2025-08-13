@@ -1,6 +1,14 @@
 data Option<a> = None | Some(a)
 
+data Unit = Unit
+
 data Repository = Repository[l](Int'local, Int'l)
+
+data Q = Q[l]((Int'l) -> Int'l)
+
+let q = match Q[free](fun(x: Int'free) x) {
+    case Q(id) -> 1
+}
 
 -- (f: (b)' -> c, g: (a)' -> b) -> (x: a)'f+g -> c
 let compose = fun
@@ -12,6 +20,7 @@ let compose = fun
 let id = fun<a <: Any'local>(x: a) x
 
 let f = fun(y: Int) fun(x: Int) y
+let appF = ((fun(y: Int) fun(x: Int) y)(1))(2)
 
 let r = Some<Int>(1)
 
@@ -26,6 +35,30 @@ effect Reader<e> {
 
 let reader =
     handle r: Reader<Int>'local {
-        op ask() 42
+        op ask() resume(42)
     }
     perform ask() to r
+
+let withReader42 = fun<r>(f: context(Reader<Int>'local) () -> r)
+    handle r: Reader<Int>'local {
+        op ask() resume(42)
+    }
+    f(r;)
+
+let withReader = fun<e, r>(f: context(Reader<e>'local) () -> r)
+    handle r: Reader<e>'local {
+        op ask() fun(e: e) (resume(e))(e)
+    }
+    fun(e: e) f(r;)
+
+effect State<s> {
+    op get(): s
+    op put(s): Unit
+}
+
+let withState = fun<s, r>(f: context(State<s>'local) () -> r)
+    handle st: State<s>'local {
+        op get() fun(s: s) (resume(s))(s)
+        op put(s) fun(old: s) (resume(Unit()))(s)
+    }
+    fun(s: s) f(st;)

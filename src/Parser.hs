@@ -57,6 +57,7 @@ inAngles = between (tok "<") (tok ">")
 inBrackets :: Parser a -> Parser a
 inBrackets = between (tok "[") (tok "]")
 
+-- todo support single underscore
 identifier :: TokenParser Char -> Parser VarName
 identifier initial = notKeyword $ parseToken $
   (:) <$> initial <*> many (alphaNum <|> char '_')
@@ -134,7 +135,7 @@ atom =
 
 expr :: Parser Expr
 expr = do
-  target <- atom
+  target <- atom -- todo curried application
   ltArgs <- option [] $ inBrackets $ list (tok ",") lt
   tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
   mbArgs <- option Nothing $ inParens do
@@ -267,4 +268,4 @@ varDecl = do
   pure MkVarDecl { name, body }
 
 prog :: Parser Prog
-prog = many decl
+prog = many decl <* eof

@@ -61,7 +61,7 @@ class Lookup ctx key result | result -> ctx key where
 
 instance MonadError String m => Lookup TyCtx VarName (m TySchema) where
   lookup tyCtx targetName = case tyCtx of
-    [] -> throwError $ "Name not found " <> targetName <> " in ctx " <> show tyCtx
+    [] -> throwError $ "Name not found '" <> targetName <> "' in ctx " <> show tyCtx <> " from\n" <> prettyCallStack callStack
     TyCtxVar MkTyCtxVar { name, tySchema } : _ | name == targetName -> pure tySchema
     TyCtxCap MkTyCtxCap { name, monoTy } : _ | name == targetName -> pure (emptyTySchema monoTy)
     TyCtxCtor MkTyCtxCtor { name, ltParams, tyParams, params, res } : _ | name == targetName ->
@@ -73,7 +73,7 @@ instance MonadError String m => Lookup TyCtx VarName (m TySchema) where
 
 lookupBound :: MonadError String m => TyCtx -> VarName -> m MonoTy
 lookupBound tyCtx targetName = case tyCtx of
-    [] -> throwError $ "Name not found " <> targetName <> " in ctx " <> show tyCtx
+    [] -> throwError $ "Name not found '" <> targetName <> "' in ctx " <> show tyCtx
     TyCtxTy MkTyParam { name, bound } : _ | name == targetName -> pure bound
     _ : rest -> rest `lookupBound` targetName
 

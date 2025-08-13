@@ -26,8 +26,8 @@ newtype OutShow a = OutShow a
 instance Out a => Show (OutShow a) where
   show (OutShow x) = pretty x
 
-subTrees :: Uniplate a => Getter a [a]
-subTrees = to Uniplate.universe
+subTrees :: Uniplate a => Fold a a
+subTrees = to Uniplate.universe % folded
 
 toSetOf :: (Is k A_Fold, Ord a) => Optic' k is s a -> s -> Set a
 toSetOf o = foldMapOf o Set.singleton

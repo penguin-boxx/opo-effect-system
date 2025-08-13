@@ -2,10 +2,13 @@ module Types where
 
 import Common
 
-import Data.Data
 import Data.Char
+import Data.Data
+import Data.Function
 import Data.Typeable
 import Data.Map (Map)
+import Data.List qualified as List
+import Data.Set qualified as Set
 import Text.PrettyPrint.GenericPretty
 import Optics
 
@@ -79,5 +82,28 @@ instance Top TyCtor where
 instance Top MonoTy where
   top = TyCtor top
 
-makePrisms ''MonoTy
 makePrisms ''Lt
+makePrisms ''MonoTy
+
+class Eq ty => NormalizedEq ty where
+  (===) :: ty -> ty -> Bool
+
+instance NormalizedEq MonoTy where
+  TyVar name1 === TyVar name2 = name1 == name2
+  (===)
+    (TyCtor MkTyCtor { name = name1, lt = normalizeLt -> lt1, args = args1 })
+    (TyCtor MkTyCtor { name = name2, lt = normalizeLt -> lt2, args = args2 }) = name1 ==
+      name2 && lt1 == lt2 && and (zipWith (===) args1 args2)
+  (===)
+    (TyFun MkTyFun { ctx = ctx1, lt = normalizeLt -> lt1, args = args1, res = res1 })
+    (TyFun MkTyFun { ctx = ctx2, lt = normalizeLt -> lt2, args = args2, res = res2 }) =
+      and $ zipWith (===) ctx1 ctx2 ++ (lt1 == lt2) : zipWith (===) args1 args2 ++ [res1 === res2]
+  _ === _ = False
+
+normalizeLt :: Lt -> Lt
+normalizeLt lt =
+  let o = subTrees % filtered (_LtIntersect `isn't`) % filtered (_LtFree `isn't`) in
+  let primitives = o `toSetOf` lt in
+  if null primitives then LtFree
+  else if LtLocal `Set.member` primitives then LtLocal
+  else LtIntersect (Set.toAscList primitives)
