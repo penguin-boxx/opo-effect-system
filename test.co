@@ -56,9 +56,11 @@ effect State<s> {
     op put(s): Unit
 }
 
-let withState = fun<s, r>(f: context(State<s>'local) () -> r)
+-- todo bounds
+let withState = fun[l]<s <: Any'l, r <: Any'l>(f: context(State<s>'local) () -> r)
     handle st: State<s>'local {
         op get() fun(s: s) (resume(s))(s)
         op put(s) fun(old: s) (resume(Unit()))(s)
     }
-    fun(s: s) f(st;)
+    let x : r = f(st;) in
+    fun(s: s) x

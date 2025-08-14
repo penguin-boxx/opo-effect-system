@@ -41,8 +41,8 @@ notKeyword p = p >>= \t ->
     pure t
   where
     keywords = Set.fromList
-      ["effect", "fun", "op", "match", "case", "local"
-      , "free", "scoped", "handle", "in", "perform"
+      [ "effect", "fun", "op", "match", "case", "local"
+      , "free", "scoped", "handle", "let", "in", "perform"
       ]
 
 inParens :: Parser a -> Parser a
@@ -126,6 +126,7 @@ atom :: Parser Expr
 atom =
   inParens expr <|>
   fun <|>
+  letIn <|>
   Match <$> match <|>
   Perform <$> perform <|>
   Handle <$> handle <|>
@@ -164,6 +165,21 @@ fun = do
   let lam = Lam MkLam { ctxParams, params, body }
   pure $ if null ltParams && null tyParams then lam else
     TLam MkTLam { ltParams, tyParams, body = lam }
+
+letIn :: Parser Expr
+letIn = do
+  tok "let"
+  name <- identifier lower
+  tok ":"
+  ty <- monoTy
+  tok "="
+  e <- expr
+  tok "in"
+  body <- expr
+  pure $ App MkApp
+    { callee = Lam MkLam { ctxParams = [], params = [MkParam { name, ty }], body }
+    , ctxArgs = [], args = [e]
+    }
 
 param :: Parser Param
 param = do

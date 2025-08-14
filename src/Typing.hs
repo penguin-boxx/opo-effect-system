@@ -158,7 +158,7 @@ inferExpr = \case
             }
       opRetTy <- let ?tyCtx = opParamCtx ++ resumeCtx : ?tyCtx in
         inferExpr (subst @ body) >>= ensureMonoTy
-      unless (opRetTy === resTy) $
+      unless (opRetTy === resTy) $ -- todo lub
         throwError $ "Operation " <> opName <> " return type " <> show opRetTy <> " mismatch " <> show resTy
     pure $ emptyTySchema resTy
 
