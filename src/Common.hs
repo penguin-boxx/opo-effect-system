@@ -21,6 +21,10 @@ instance (Out k, Out v) => Out (Map k v) where
   doc = doc . Map.toList
   docPrec = const doc
 
+instance (Out a, Ord a) => Out (Set a) where
+  doc = doc . Set.toAscList
+  docPrec = const doc
+
 newtype OutShow a = OutShow a
 
 instance Out a => Show (OutShow a) where

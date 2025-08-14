@@ -1,14 +1,19 @@
-module Subst where
+module TypingUtils where
 
 import Common
 import Syntax
 import Types
+import TypingCtx
 
 import Control.Monad
 import Control.Monad.Except
 import Data.Map (Map, (!?))
 import Data.Map qualified as Map
+import Data.Set qualified as Set
 import Data.Maybe
+import Optics
+import Data.Kind
+import GHC.Stack
 
 
 class DoSubst target where
@@ -44,7 +49,7 @@ instance DoSubst target => Apply (Subst target) Lt Lt where
     LtVar name -> onLt f name arg
     LtLocal -> LtLocal
     LtFree -> LtFree
-    LtIntersect lts -> LtIntersect (f @ lts)
+    LtIntersect names -> foldr lub LtFree $ (\name -> onLt f name (LtVar name)) <$> Set.toList names
 
 instance DoSubst target => Apply (Subst target) MonoTy MonoTy where
   f @ arg = case arg of
@@ -81,3 +86,42 @@ instance DoSubst target => Apply (Subst target) Branch Branch where
 
 instance DoSubst target => Apply (Subst target) OpSig OpSig where
   f @ MkOpSig { tyParams, params, res } = MkOpSig { tyParams, params, res = f @ res } -- TODO
+
+
+infix 5 `lub`
+class LeastUpperBound ty where
+  type LubC ty :: Constraint
+  lub :: (LubC ty, HasCallStack) => ty -> ty -> ty
+
+instance LeastUpperBound Lt where
+  type LubC Lt = ()
+  lub LtLocal _ = LtLocal
+  lub _ LtLocal = LtLocal
+  lub LtFree lt = lt
+  lub lt LtFree = lt
+  lub (LtIntersect names1) (LtIntersect names2) =
+    let names = names1 <> names2 in
+    if Set.size names == 1 then LtVar $ head $ Set.toList names else LtIntersect names
+  lub (LtVar name) lt = LtIntersect (Set.singleton name) `lub` lt
+  lub lt (LtVar name) = lt `lub` LtIntersect (Set.singleton name)
+
+instance LeastUpperBound MonoTy where
+  type LubC MonoTy = (?tyCtx :: TyCtx)
+  lub var@(TyVar name1) (TyVar name2)
+    | name1 == name2 = var
+    | otherwise = ?tyCtx `lookupBound'` name1 `lub` ?tyCtx `lookupBound'` name2
+  lub
+    (TyCtor MkTyCtor { name = name1, lt = lt1, args = args1 })
+    (TyCtor MkTyCtor { name = name2, lt = lt2, args = args2 })
+    | name1 == name2 && args1 == args2 =
+      TyCtor MkTyCtor { name = name1, lt = lt1 `lub` lt2, args = args1 }
+    | otherwise =
+      TyCtor MkTyCtor { name = "Any", lt = lt1 `lub` lt2, args = [] }
+  lub
+    (TyFun MkTyFun { ctx = ctx1, lt = lt1, args = args1, res = res1 })
+    (TyFun MkTyFun { ctx = ctx2, lt = lt2, args = args2, res = res2 })
+    | ctx1 == ctx2 && args1 == args2 && res1 == res2 = -- TODO variance
+      TyFun MkTyFun { ctx = ctx1, lt = lt1 `lub` lt2, args = args1, res = res1 }
+    | otherwise =
+      TyCtor MkTyCtor { name = "Any", lt = lt1 `lub` lt2, args = [] }
+  lub _ _ = top

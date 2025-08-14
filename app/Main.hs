@@ -7,6 +7,7 @@ import Semantics
 import Types
 import Typing
 import TypingCtx
+import TypingUtils
 
 import Control.Monad
 import Control.Monad.Except
@@ -36,7 +37,7 @@ main = getArgs >>= \case
                 , params
                 , res = MkTyCtor
                   { name = tyName
-                  , lt = LtIntersect $ Set.toList $
+                  , lt = foldr lub LtFree $
                     let ?tyCtx = [] in foldMap ((`lifetimesOn` PositivePos) . emptyTySchema) params
                   , args = TyVar <$> tyParams
                   }

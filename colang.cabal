@@ -29,11 +29,11 @@ library
       Lexer
       Parser
       Semantics
-      Subst
       Syntax
       Types
       Typing
       TypingCtx
+      TypingUtils
   other-modules:
       Paths_colang
   autogen-modules:

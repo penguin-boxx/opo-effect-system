@@ -77,6 +77,11 @@ lookupBound tyCtx targetName = case tyCtx of
     TyCtxTy MkTyParam { name, bound } : _ | name == targetName -> pure bound
     _ : rest -> rest `lookupBound` targetName
 
+lookupBound' :: HasCallStack => TyCtx -> VarName -> MonoTy
+lookupBound' tyCtx targetName = case runExcept (tyCtx `lookupBound` targetName) of
+  Left e -> error e
+  Right x -> x
+
 instance Lookup TyCtx TyName [TyCtxCtor] where
   lookup tyCtx targetName =
     [ ctor

@@ -4,7 +4,7 @@ import Common
 import Types
 import TypingCtx
 import Syntax
-import Subst
+import TypingUtils
 
 import Control.Monad
 import Control.Monad.Except
@@ -53,7 +53,7 @@ inferExpr = \case
           ?tyCtx
     res <- inferExpr body >>= ensureMonoTy
     let resLts = let ?tyCtx = [] in emptyTySchema res `lifetimesOn` PositivePos
-    when (LtLocal `Set.member` Set.map normalizeLt resLts) $
+    when (LtLocal `Set.member` resLts) $
       throwError $ "Tracked value escapes via return value of type " <> show res
     let boundVars = folded % #name `toSetOf` (ctxParams <> params)
     let freeVarNames = freeVars body \\ boundVars
@@ -62,7 +62,7 @@ inferExpr = \case
     pure $ emptyTySchema $ TyFun MkTyFun
       { ctx = toListOf (each % #ty) ctxParams
       , args = toListOf (each % #ty) params
-      , lt = LtIntersect $ Set.toList freeLts
+      , lt = foldr lub LtFree freeLts
       , res
       }
 
@@ -105,10 +105,10 @@ inferExpr = \case
         pure $ tySubst @ (posSubst @ (negSubst @ param))
       let mkCtxVar name param = TyCtxVar MkTyCtxVar { name, tySchema = emptyTySchema param }
       let ?tyCtx = zipWith mkCtxVar varPatterns params' ++ ?tyCtx
-      inferExpr body
-    unless (and $ zipWith (==) resTys (drop 1 resTys)) $
-      throwError $ "Branch result types shouls be equal, but they are\n" <> unlines (map show resTys) -- todo LUB
-    pure $ head resTys
+      inferExpr body >>= ensureMonoTy
+    when (null resTys) $
+      throwError "There should be at least one branch" -- todo make Bot
+    pure $ emptyTySchema $ foldr1 lub resTys
 
   Perform MkPerform { opName, cap, tyArgs = opTyArgs, args } -> do
     MkTyCtor { name = effName, args = tyArgs } <-
@@ -135,7 +135,7 @@ inferExpr = \case
     let capCtx = TyCtxCap MkTyCtxCap { name = capName, monoTy = TyCtor effTy }
     resTy <- let ?tyCtx = capCtx : ?tyCtx in inferExpr body >>= ensureMonoTy
     let resLts = let ?tyCtx = [] in emptyTySchema resTy `lifetimesOn` PositivePos
-    when (LtLocal `Set.member` Set.map normalizeLt resLts) $
+    when (LtLocal `Set.member` resLts) $
       throwError "Tracked value is escaping out of the handler body"
     let resFv = resTy `freeLtVarsOn` PositivePos <> resTy `freeLtVarsOn` NegativePos
     MkEffCtxEntry { tyParams = effTyParams, ops } <- ?effCtx `lookup` effName
@@ -154,11 +154,11 @@ inferExpr = \case
       let opParamCtx = TyCtxVar <$> zipWith MkTyCtxVar paramNames (emptyTySchema <$> params)
       let resumeCtx = TyCtxVar MkTyCtxVar
             { name = "resume", tySchema = emptyTySchema $ TyFun MkTyFun
-                { ctx = [], lt = LtFree, args = [opResTy], res = resTy } -- TODO cont lifetime
+                { ctx = [], lt = LtFree, args = [opResTy], res = resTy }
             }
       opRetTy <- let ?tyCtx = opParamCtx ++ resumeCtx : ?tyCtx in
         inferExpr (subst @ body) >>= ensureMonoTy
-      unless (opRetTy === resTy) $ -- todo lub
+      unless (opRetTy `subTyOf` resTy) $
         throwError $ "Operation " <> opName <> " return type " <> show opRetTy <> " mismatch " <> show resTy
     pure $ emptyTySchema resTy
 
@@ -188,8 +188,8 @@ subTyCtorOf ctor1 ctor2 = ctor1 == ctor2 || ctor2 == "Any"
 subLtOf :: Lt -> Lt -> Bool
 subLtOf = curry \case
   (LtVar name1, LtVar name2) -> name1 == name2
-  (LtIntersect lts, lt) -> all (`subLtOf` lt) lts
-  (lt, LtIntersect lts) -> any (lt `subLtOf`) lts
+  (LtVar name, LtIntersect lts) -> name `Set.member` lts
+  (LtIntersect lts1, LtIntersect lts2) -> lts1 `Set.isSubsetOf` lts2
   (lt1, lt2) -> lt1 == LtFree || lt2 == LtLocal
 
 paramsToTyCtxEntry :: Bool -> Param -> TyCtxEntry

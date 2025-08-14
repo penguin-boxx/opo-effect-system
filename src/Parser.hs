@@ -79,7 +79,7 @@ lt =
   LtLocal <$ tok "local" <|>
   LtFree <$ tok "free" <|>
   LtVar <$> identifier lower <|>
-  LtIntersect <$> (tok "&" *> inParens (list (tok ",") lt)) <|>
+  LtIntersect . Set.fromList <$> (tok "&" *> inParens (list (tok ",") (identifier lower))) <|>
   inParens lt
 
 monoTy :: Parser MonoTy
