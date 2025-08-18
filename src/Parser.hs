@@ -125,32 +125,39 @@ tySchema = do
 atom :: Parser Expr
 atom =
   inParens expr <|>
-  fun <|>
-  letIn <|>
   Match <$> match <|>
-  Perform <$> perform <|>
-  Handle <$> handle <|>
   Const <$> number <|>
   Var <$> identifier lower <|>
   Var <$> identifier upper
 
+atomOrApp :: Parser Expr
+atomOrApp = do
+  target <- atom
+  argBlocks <- many do
+    ltArgs <- option [] $ inBrackets $ list (tok ",") lt
+    tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
+    allArgs <- inParens do
+      firstArgs <- list (tok ",") expr
+      optionMaybe (tok ";") >>= \case
+        Nothing -> pure ([], firstArgs)
+        Just _ -> do
+          secondArgs <- list (tok ",") expr
+          pure (firstArgs, secondArgs)
+    pure (ltArgs, tyArgs, allArgs)
+  pure $ foldl mkApp target argBlocks
+  where
+    mkApp target (ltArgs, tyArgs, (ctxArgs, args)) =
+      let callee = if null ltArgs && null tyArgs then target else
+            TApp MkTApp { lhs = target, ltArgs, tyArgs } in
+      App MkApp { callee, ctxArgs, args }
+
 expr :: Parser Expr
-expr = do
-  target <- atom -- todo curried application
-  ltArgs <- option [] $ inBrackets $ list (tok ",") lt
-  tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
-  mbArgs <- option Nothing $ inParens do
-    firstArgs <- list (tok ",") expr
-    optionMaybe (tok ";") >>= \case
-      Nothing -> pure $ Just ([], firstArgs)
-      Just _ -> do
-        secondArgs <- list (tok ",") expr
-        pure $ Just (firstArgs, secondArgs)
-  let callee = if null ltArgs && null tyArgs then target else
-        TApp MkTApp { lhs = target, ltArgs, tyArgs }
-  pure case mbArgs of
-    Nothing -> callee
-    Just (ctxArgs, args) -> App MkApp { callee, ctxArgs, args }
+expr =
+  fun <|>
+  letIn <|>
+  Perform <$> perform <|>
+  Handle <$> handle <|>
+  atomOrApp
 
 fun :: Parser Expr
 fun = do

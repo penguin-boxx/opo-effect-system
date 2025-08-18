@@ -22,7 +22,7 @@ let compose = fun
 let id = fun<a <: Any'local>(x: a) x
 
 let f = fun(y: Int) fun(x: Int) y
-let appF = ((fun(y: Int) fun(x: Int) y)(1))(2)
+let appF = (fun(y: Int) fun(x: Int) y)(1)(2)
 
 let r = Some<Int>(1)
 
@@ -51,7 +51,8 @@ let withReader = fun<e, r>(f: context(Reader<e>'local) () -> r)
     handle r: Reader<e>'local {
         op ask() fun(e: e) (resume(e))(e)
     }
-    fun(e: e) f(r;)
+    let x: r = f(r;) in
+    fun(e: e) x
 
 effect State<s> {
     op get(): s
@@ -72,4 +73,4 @@ let cps = fun(f: (File'local) -> Int)
 
 data List<a> = Nil | Cons(a, List<a>)
 
-let cons = fun[l]<a <: Any'l>(x: a) fun(xs: List<a>) Cons(a, xs)
+let cons = fun[l]<a <: Any'l>() fun(x: a) fun(xs: List<a>) Cons<a>(x, xs)
