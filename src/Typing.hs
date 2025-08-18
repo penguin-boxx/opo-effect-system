@@ -58,10 +58,13 @@ inferExpr = \case
     let boundVars = folded % #name `toSetOf` (ctxParams <> params)
     let freeVarNames = freeVars body \\ boundVars
     freeVarsSchemas <- mapM (?tyCtx `lookup`) (Set.toList freeVarNames)
-    let freeLts = foldMap (`lifetimesOn` PositivePos) freeVarsSchemas
+    let paramFreeTyVars = (ctxParams ++ params) & folded % #ty `foldMapOf` (`freeTyVarsAt` NegativePos)
+    let resFreeTyVars = res `freeTyVarsAt` PositivePos
+    let freeLts = let ?tyCtx = filterVars (paramFreeTyVars <> resFreeTyVars) ?tyCtx in
+          foldMap (`lifetimesOn` PositivePos) freeVarsSchemas
     pure $ emptyTySchema $ TyFun MkTyFun
-      { ctx = toListOf (each % #ty) ctxParams
-      , args = toListOf (each % #ty) params
+      { ctx = each % #ty `toListOf` ctxParams
+      , args = each % #ty `toListOf` params
       , lt = foldr lub LtFree freeLts
       , res
       }
@@ -158,8 +161,8 @@ inferExpr = \case
             }
       opRetTy <- let ?tyCtx = opParamCtx ++ resumeCtx : ?tyCtx in
         inferExpr (subst @ body) >>= ensureMonoTy
-      unless (opRetTy `subTyOf` resTy) $
-        throwError $ "Operation " <> opName <> " return type " <> show opRetTy <> " mismatch " <> show resTy
+      unless (opRetTy == resTy) $ -- todo
+        throwError $ "Operation " <> opName <> " return type \n" <> show opRetTy <> "\nmismatch\n" <> show resTy
     pure $ emptyTySchema resTy
 
   unsupported -> error $ "Unsupported construct: " <> show unsupported
@@ -197,10 +200,10 @@ paramsToTyCtxEntry contextual MkParam { name, ty }
   | contextual = TyCtxCap MkTyCtxCap { name, monoTy = ty }
   | otherwise = TyCtxVar MkTyCtxVar { name, tySchema = emptyTySchema ty }
 
-ensureMonoTy :: MonadError String m => TySchema -> m MonoTy
+ensureMonoTy :: (HasCallStack, MonadError String m) => TySchema -> m MonoTy
 ensureMonoTy = \case
   MkTySchema { ltParams = [], tyParams = [], ty } -> pure ty
-  schema -> throwError $ "Expected mono type, got " <> show schema
+  schema -> throwError $ "Expected mono type, got " <> show schema <> " at\n" <> prettyCallStack callStack
 
 freeVars :: HasCallStack => Expr -> Set VarName
 freeVars = \case
@@ -260,3 +263,19 @@ lifetimesOn MkTySchema{ ltParams, tyParams, ty } expectedSign =
         when (currSign == expectedSign) $
           tell $ Set.singleton lt
         res `goOn` currSign
+
+freeTyVarsAt :: MonoTy -> PositionSign -> Set TyName
+freeTyVarsAt ty expectedSign = execWriter (ty `goAt` PositivePos)
+  where
+    goAt :: MonadWriter (Set TyName) m => MonoTy -> PositionSign -> m ()
+    goAt ty currSign = case ty of
+      TyVar name ->
+        when (currSign == expectedSign) $
+          tell $ Set.singleton name
+      TyCtor MkTyCtor { args } -> do
+        forM_ args (`goAt` currSign)
+        forM_ args (`goAt` changeSign currSign)
+      TyFun MkTyFun { ctx, args, res } -> do
+        forM_ ctx (`goAt` changeSign currSign)
+        forM_ args (`goAt` changeSign  currSign)
+        res `goAt` currSign

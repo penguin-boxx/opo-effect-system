@@ -6,6 +6,8 @@ data Repository = Repository[l](Int'local, Int'l)
 
 data Q = Q[l]((Int'l) -> Int'l)
 
+data File = File
+
 let q = match Q[free](fun(x: Int'free) x) {
     case Q(id) -> 1
 }
@@ -64,3 +66,10 @@ let withState = fun[l]<s <: Any'l, r <: Any'l>(f: context(State<s>'local) () -> 
     }
     let x : r = f(st;) in
     fun(s: s) x
+
+let cps = fun(f: (File'local) -> Int)
+    f(File())
+
+data List<a> = Nil | Cons(a, List<a>)
+
+let cons = fun[l]<a <: Any'l>(x: a) fun(xs: List<a>) Cons(a, xs)

@@ -5,11 +5,14 @@ import Types
 
 import Data.Data
 import Data.List qualified as List
+import Data.Set (Set)
+import Data.Set qualified as Set
 import Data.Typeable
 import Prelude hiding (lookup)
 import Control.Monad.Except
 import GHC.Stack
 import Text.PrettyPrint.GenericPretty
+import Optics
 
 type TyCtx = [TyCtxEntry]
 
@@ -55,6 +58,8 @@ data EffCtxEntry = MkEffCtxEntry
   deriving anyclass Out
   deriving Show via OutShow EffCtxEntry
 
+makePrisms ''TyCtxEntry
+
 
 class Lookup ctx key result | result -> ctx key where
   lookup :: HasCallStack => ctx -> key -> result
@@ -95,3 +100,6 @@ instance MonadError String m => Lookup EffCtx TyName (m EffCtxEntry) where
     case List.find (\MkEffCtxEntry { effName } -> effName == targetName) effCtx of
       Nothing -> throwError $ "Effect not found " <> targetName
       Just entry -> pure entry
+
+filterVars :: Set TyName -> TyCtx -> TyCtx
+filterVars names = filter (_TyCtxTy % #name % filtered (`Set.member` names) `hasn't`)

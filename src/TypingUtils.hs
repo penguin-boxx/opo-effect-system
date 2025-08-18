@@ -124,4 +124,4 @@ instance LeastUpperBound MonoTy where
       TyFun MkTyFun { ctx = ctx1, lt = lt1 `lub` lt2, args = args1, res = res1 }
     | otherwise =
       TyCtor MkTyCtor { name = "Any", lt = lt1 `lub` lt2, args = [] }
-  lub _ _ = top
+  lub _ _ = top -- todo other cases
