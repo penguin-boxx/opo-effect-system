@@ -49,7 +49,7 @@ let withReader42 = fun<r>(f: context(Reader<Int>'local) () -> r)
 
 let withReader = fun<e, r>(f: context(Reader<e>'local) () -> r)
     handle r: Reader<e>'local {
-        op ask() fun(e: e) (resume(e))(e)
+        op ask() fun(e: e) resume(e)(e)
     }
     let x: r = f(r;) in
     fun(e: e) x
@@ -62,8 +62,8 @@ effect State<s> {
 -- todo bounds
 let withState = fun[l]<s <: Any'l, r <: Any'l>(f: context(State<s>'local) () -> r)
     handle st: State<s>'local {
-        op get() fun(s: s) (resume(s))(s)
-        op put(s) fun(old: s) (resume(Unit()))(s)
+        op get() fun(s: s) resume(s)(s)
+        op put(s) fun(old: s) resume(Unit())(s)
     }
     let x : r = f(st;) in
     fun(s: s) x
@@ -73,4 +73,5 @@ let cps = fun(f: (File'local) -> Int)
 
 data List<a> = Nil | Cons(a, List<a>)
 
+-- cons : () -> (a) -> (List<a>) -> List<a>
 let cons = fun[l]<a <: Any'l>() fun(x: a) fun(xs: List<a>) Cons<a>(x, xs)

@@ -170,7 +170,8 @@ inferExpr = \case
 infix 2 `subTyOf`
 subTyOf :: (?tyCtx :: TyCtx) => MonoTy -> MonoTy -> Bool
 subTyOf = curry \case
-  (TyVar name1, TyVar name2) -> name1 == name2;
+  (TyVar name1, TyVar name2) -> name1 == name2
+  (TyVar name1, ty) -> (?tyCtx `lookupBound'` name1) `subTyOf` ty
   ( TyCtor MkTyCtor { name = ctor1, lt = lt1, args = args1 },
     TyCtor MkTyCtor { name = ctor2, lt = lt2, args = args2 } ) ->
     ctor1 `subTyCtorOf` ctor2 && lt1 `subLtOf` lt2 && args1 == args2
