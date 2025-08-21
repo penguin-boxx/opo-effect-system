@@ -6,6 +6,7 @@ import Types
 import Lexer
 
 import Control.Applicative (some)
+import Data.Functor
 import Data.Set qualified as Set
 import Data.Map qualified as Map
 import Text.Parsec
@@ -78,9 +79,11 @@ lt :: Parser Lt
 lt =
   LtLocal <$ tok "local" <|>
   LtFree <$ tok "free" <|>
-  LtVar <$> identifier lower <|>
-  LtIntersect . Set.fromList <$> (tok "&" *> inParens (list (tok ",") (identifier lower))) <|>
-  inParens lt
+  vars
+  where
+    vars = nonEmptyList (tok "+") (identifier lower) <&> \case
+      [name] -> LtVar name
+      names -> LtIntersect $ Set.fromList names
 
 monoTy :: Parser MonoTy
 monoTy =
@@ -130,8 +133,8 @@ atom =
   Var <$> identifier lower <|>
   Var <$> identifier upper
 
-atomOrApp :: Parser Expr
-atomOrApp = do
+atomWithPostfix :: Parser Expr
+atomWithPostfix = do
   target <- atom
   argBlocks <- many do
     ltArgs <- option [] $ inBrackets $ list (tok ",") lt
@@ -157,7 +160,7 @@ expr =
   letIn <|>
   Perform <$> perform <|>
   Handle <$> handle <|>
-  atomOrApp
+  atomWithPostfix
 
 fun :: Parser Expr
 fun = do
@@ -202,14 +205,23 @@ match = do
   branches <- inBraces $ some branch
   pure MkMatch { scrutinee, branches }
 
+branch :: Parser Branch
+branch = do
+  tok "case"
+  ctorName <- identifier upper
+  varPatterns <- option [] $ inParens $ list (tok ",") $ identifier lower
+  tok "->"
+  body <- expr
+  pure MkBranch { ctorName, varPatterns, body }
+
 perform :: Parser Perform
 perform = do
   tok "perform"
+  cap <- expr
+  tok "."
   opName <- identifier lower
   tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
   args <- inParens $ list (tok ",") expr
-  tok "to"
-  cap <- expr
   pure MkPerform { opName, cap, tyArgs, args }
 
 handle :: Parser Handle
@@ -232,15 +244,6 @@ handlerEntry = do
   paramNames <- inParens $ list (tok ",") $ identifier lower
   body <- expr
   pure MkHandlerEntry { opName, paramNames, body }
-
-branch :: Parser Branch
-branch = do
-  tok "case"
-  ctorName <- identifier upper
-  varPatterns <- inParens $ list (tok ",") $ identifier lower
-  tok "->"
-  body <- expr
-  pure MkBranch { ctorName, varPatterns, body }
 
 decl :: Parser Decl
 decl =

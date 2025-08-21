@@ -39,7 +39,7 @@ let reader =
     handle r: Reader<Int>'local {
         op ask() resume(42)
     }
-    perform ask() to r
+    perform r.ask()
 
 let withReader42 = fun<r>(f: context(Reader<Int>'local) () -> r)
     handle r: Reader<Int>'local {
