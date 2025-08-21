@@ -157,3 +157,5 @@ data VarDecl = MkVarDecl
   deriving Show via OutShow VarDecl
 
 type Prog = [Decl]
+
+makePrisms ''Decl

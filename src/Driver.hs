@@ -8,10 +8,15 @@ import TypingUtils
 import Typing
 import Parser qualified
 
+import Control.Monad
+import Control.Monad.State
+import Control.Monad.Except
 import Data.Function
+import Data.Foldable
 import Data.Map (Map)
 import Data.Map qualified as Map
 import Text.Parsec
+import Optics
 
 parseProg :: String -> Prog
 parseProg = report . parse Parser.prog "" . tokenize
@@ -47,3 +52,13 @@ collectDecls prog =
     ctorLifetime params = let ?tyCtx = [] in params
       & foldMap ((`lifetimesOn` PositivePos) . emptyTySchema)
       & foldr lub LtFree
+
+typeLets :: EffCtx -> TyCtx -> Prog -> Map String TySchema
+typeLets effCtx tyCtx prog = fold $ reverse $ flip evalState tyCtx do
+  let ?effCtx = effCtx
+  forM (each % _VarDecl `toListOf` prog) $ \MkVarDecl{ name, body } -> do
+    tyCtx <- get
+    let ?tyCtx = tyCtx
+    tySchema <- runExceptT (inferExpr body) >>= either error pure
+    modify (TyCtxVar MkTyCtxVar { name, tySchema } :)
+    pure $ Map.singleton name tySchema

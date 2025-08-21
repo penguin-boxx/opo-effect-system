@@ -22,7 +22,7 @@ tokenize str = str
     symbols = ["->", "<:"]
     delimiters = [Char.isMark, Char.isPunctuation, Char.isSymbol]
     isDelimiter c = any ($ c) delimiters
-    removeComments = filter (not . (["--"] `List.isPrefixOf`))
+    removeComments = filter (not . (["//"] `List.isPrefixOf`))
 
 splitBySelector :: ([a] -> [a]) -> [a] -> [[a]]
 splitBySelector selectFromPrefix xs = case breakSelected xs of

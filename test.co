@@ -8,11 +8,11 @@ data Q = Q[l]((Int'l) -> Int'l)
 
 data File = File
 
-let q = match Q[free](fun(x: Int'free) x) {
-    case Q(id) -> 1
-}
+// let q = match Q[free](fun(x: Int'free) x) {
+//     case Q(id) -> 1
+// }
 
--- (f: (b)' -> c, g: (a)' -> b) -> (x: a)'f+g -> c
+// (f: (b)' -> c, g: (a)' -> b) -> (x: a)'f+g -> c
 let compose = fun
     [l1, l2, l3, l4, l5]
     <a <: Any'l1, b <: Any'l2, c <: Any'l3>
@@ -59,19 +59,19 @@ effect State<s> {
     op put(s): Unit
 }
 
--- todo bounds
-let withState = fun[l]<s <: Any'l, r <: Any'l>(f: context(State<s>'local) () -> r)
-    handle st: State<s>'local {
-        op get() fun(s: s) resume(s)(s)
-        op put(s) fun(old: s) resume(Unit())(s)
-    }
-    let x : r = f(st;) in
-    fun(s: s) x
+// todo bounds
+// let withState = fun[l]<s <: Any'l, r <: Any'l>(f: context(State<s>'local) () -> r)
+//     handle st: State<s>'local {
+//         op get() fun(s: s) resume(s)(s)
+//         op put(s) fun(old: s) resume(Unit())(s)
+//     }
+//     let x : r = f(st;) in
+//     fun(s: s) x
 
 let cps = fun(f: (File'local) -> Int)
     f(File())
 
 data List<a> = Nil | Cons(a, List<a>)
 
--- cons : () -> (a) -> (List<a>) -> List<a>
+// cons : () -> (a) -> (List<a>) -> List<a>
 let cons = fun[l]<a <: Any'l>() fun(x: a) fun(xs: List<a>) Cons<a>(x, xs)
