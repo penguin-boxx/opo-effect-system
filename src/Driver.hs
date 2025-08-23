@@ -56,9 +56,14 @@ collectDecls prog =
 typeLets :: EffCtx -> TyCtx -> Prog -> Map String TySchema
 typeLets effCtx tyCtx prog = fold $ reverse $ flip evalState tyCtx do
   let ?effCtx = effCtx
-  forM (each % _VarDecl `toListOf` prog) $ \MkVarDecl{ name, body } -> do
+  forM (each % _VarDecl `toListOf` prog) $ \MkVarDecl{ name, body, expectedTy } -> do
     tyCtx <- get
-    let ?tyCtx = tyCtx
+    let ?tyCtx = case expectedTy of
+          Nothing -> tyCtx
+          Just ty -> let rec = TyCtxVar MkTyCtxVar { name, tySchema = ty } in rec : tyCtx
     tySchema <- runExceptT (inferExpr body) >>= either error pure
+    case expectedTy of
+      Nothing -> pure ()
+      Just ty -> unless (tySchema == ty) $ error "Unexpected type"
     modify (TyCtxVar MkTyCtxVar { name, tySchema } :)
     pure $ Map.singleton name tySchema

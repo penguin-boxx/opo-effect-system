@@ -10,9 +10,7 @@ type Token = String
 tokenize :: String -> [Token]
 tokenize str = str
   & lines
-  & fmap words
-  & removeComments
-  & concat
+  & concatMap (removeComments . words)
   & concatMap (splitBySelector selector)
   where
     selector s
@@ -22,7 +20,7 @@ tokenize str = str
     symbols = ["->", "<:"]
     delimiters = [Char.isMark, Char.isPunctuation, Char.isSymbol]
     isDelimiter c = any ($ c) delimiters
-    removeComments = filter (not . (["//"] `List.isPrefixOf`))
+    removeComments = List.takeWhile (/= "//")
 
 splitBySelector :: ([a] -> [a]) -> [a] -> [[a]]
 splitBySelector selectFromPrefix xs = case breakSelected xs of

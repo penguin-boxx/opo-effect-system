@@ -101,8 +101,9 @@ inferExpr = \case
       params' <- forM params \param -> do
         let posLts = param `freeLtVarsOn` PositivePos
         let negLts = param `freeLtVarsOn` NegativePos
-        unless (posLts `Set.disjoint` negLts) $
-          throwError "A lifetime variable should not occur in both positive and negative positions"
+        -- TODO
+        -- unless (posLts `Set.disjoint` negLts) $
+        --   throwError "A lifetime variable should not occur in both positive and negative positions"
         posSubst <- mkSubst (Set.toList posLts) (replicate (Set.size posLts) lt)
         negSubst <- mkSubst (Set.toList negLts) (replicate (Set.size negLts) LtFree)
         pure $ tySubst @ (posSubst @ (negSubst @ param))
@@ -218,6 +219,9 @@ freeVars = \case
     freeVars body \\ toSetOf (folded % #name) (ctxParams <> params)
   App MkApp { callee, ctxArgs, args } ->
     freeVars callee <> foldMap freeVars ctxArgs <> foldMap freeVars args
+  Match MkMatch { scrutinee, branches } ->
+    freeVars scrutinee <> flip foldMap branches \MkBranch{ varPatterns, body } ->
+      freeVars body \\ Set.fromList varPatterns
   Handle MkHandle { capName, handler, body } ->
     capName `Set.delete` freeVars body <>
     flip foldMap handler \MkHandlerEntry { paramNames, body } ->

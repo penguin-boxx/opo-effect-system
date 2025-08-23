@@ -151,6 +151,7 @@ data EffDecl = MkEffDecl
 data VarDecl = MkVarDecl
   { name :: VarName
   , body :: Expr
+  , expectedTy :: Maybe TySchema
   }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out

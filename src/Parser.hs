@@ -11,6 +11,7 @@ import Data.Set qualified as Set
 import Data.Map qualified as Map
 import Text.Parsec
 import Text.Parsec.Pos
+import Optics
 
 type Parser a = Parsec [Token] () a
 
@@ -249,7 +250,8 @@ decl :: Parser Decl
 decl =
   DataDecl <$> dataDecl <|>
   EffDecl <$> effDecl <|>
-  VarDecl <$> varDecl
+  VarDecl <$> varDecl <|>
+  VarDecl <$> funDecl
 
 dataDecl :: Parser DataDecl
 dataDecl = do
@@ -291,7 +293,37 @@ varDecl = do
   name <- identifier lower
   tok "="
   body <- expr
-  pure MkVarDecl { name, body }
+  pure MkVarDecl { name, body, expectedTy = Nothing }
+
+funDecl :: Parser VarDecl
+funDecl = do
+  ctxParams <- option [] do
+    tok "context"
+    inParens $ list (tok ",") param
+  tok "fun"
+  name <- identifier lower
+  ltParams <- option [] $ inBrackets $ list (tok ",") $ identifier lower
+  tyParams <- option [] $ inAngles $ list (tok ",") tyParam
+  params <- inParens $ list (tok ",") param
+  tok ":"
+  resTy <- monoTy
+  tok "="
+  body <- expr
+  let lam = Lam MkLam { ctxParams, params, body }
+  let tlam = if null ltParams && null tyParams then lam else
+        TLam MkTLam { ltParams, tyParams, body = lam }
+  pure MkVarDecl
+    { name, body = tlam
+    , expectedTy = Just MkTySchema
+      { ltParams, tyParams
+      , ty = TyFun MkTyFun
+        { ctx = each % #ty `toListOf` ctxParams
+        , lt = LtFree
+        , args = each % #ty `toListOf` params
+        , res = resTy
+        }
+      }
+    }
 
 prog :: Parser Prog
 prog = many decl <* eof

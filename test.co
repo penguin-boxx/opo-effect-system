@@ -75,3 +75,19 @@ data List<a> = Nil | Cons(a, List<a>)
 
 // cons : () -> (a) -> (List<a>) -> List<a>
 let cons = fun[l]<a <: Any'l>() fun(x: a) fun(xs: List<a>) Cons<a>(x, xs)
+
+data LazyList<a>
+    = LNil
+    | LCons[lh, lt, ll](()'lh -> a, ()'lt -> LazyList<a>'ll)
+
+fun lazyMap
+    [lf, la, lb]<a <: Any'la, b <: Any'lb>
+    (xs: LazyList<a>, f: (a)'lf -> b):
+    LazyList<b>'lf+la =
+    match xs {
+        case LNil() -> LNil<b>()
+        case LCons(h, t) -> LCons[lf+la, lf+la, lf+la]<b>(
+            fun() f(h()),
+            fun() lazyMap[lf, la, lb]<a, b>(t(), f)
+        )
+    }
