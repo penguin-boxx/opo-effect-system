@@ -3,6 +3,7 @@ module Lexer where
 import Data.Function ((&))
 import Data.Char qualified as Char
 import Data.List qualified as List
+import Debug.Trace
 
 -- TODO: preserve locations
 type Token = String
@@ -10,14 +11,15 @@ type Token = String
 tokenize :: String -> [Token]
 tokenize str = str
   & lines
-  & concatMap (removeComments . words)
-  & concatMap (splitBySelector selector)
+  & fmap (concatMap (splitBySelector selector) . words)
+  & concatMap removeComments
   where
+    selector :: [Char] -> [Char]
     selector s
       | Just prefix <- List.find (`List.isPrefixOf` s) symbols = prefix
       | c:_ <- s, isDelimiter c = [c]
       | otherwise = []
-    symbols = ["->", "<:"]
+    symbols = ["->", "<:", "//"]
     delimiters = [Char.isMark, Char.isPunctuation, Char.isSymbol]
     isDelimiter c = any ($ c) delimiters
     removeComments = List.takeWhile (/= "//")

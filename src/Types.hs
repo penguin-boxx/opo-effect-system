@@ -21,20 +21,35 @@ data Lt
   = LtVar LtName
   | LtLocal
   | LtFree
-  | LtIntersect (Set LtName) -- non empty
+  | LtMin (Set LtName)
   deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow Lt
+  deriving Out via ShowOut Lt
+
+instance Show Lt where
+  show = \case
+    LtVar name -> name
+    LtLocal -> "local"
+    LtFree -> "free"
+    LtMin (Set.toAscList -> names) -> List.intercalate "+" names
 
 data MonoTy = TyVar TyName | TyCtor TyCtor | TyFun TyFun
   deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow MonoTy
+  deriving Out via ShowOut MonoTy
+
+instance Show MonoTy where
+  show = \case
+    TyVar name -> name
+    TyCtor ctor -> show ctor
+    TyFun fun -> show fun
 
 data TyCtor = MkTyCtor { name :: TyName, lt :: Lt, args :: [MonoTy] }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow TyCtor
+  deriving Out via ShowOut TyCtor
+
+instance Show TyCtor where
+  show MkTyCtor { name, lt, args } =
+    let args' = if null args then "" else "<" ++ List.intercalate ", " (show <$> args) ++ ">" in
+    name <> args' <> "'" <> show lt
 
 data TyFun = MkTyFun
   { ctx :: EffRow
@@ -43,15 +58,25 @@ data TyFun = MkTyFun
   , res :: MonoTy
   }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow TyFun
+  deriving Out via ShowOut TyFun
+
+instance Show TyFun where
+  show MkTyFun { ctx, lt, args, res } = concat
+    [ if null ctx then "" else "context(" <> List.intercalate ", " (show <$> ctx) <> ") "
+    , "(" <> List.intercalate ", " (show <$> args) <> ")"
+    , "'" <> show lt
+    , " -> " <> show res
+    ]
 
 type EffRow = [MonoTy]
 
 data TyParam = MkTyParam { name :: TyName, bound :: MonoTy }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow TyParam
+  deriving Out via ShowOut TyParam
+
+instance Show TyParam where
+  show MkTyParam { name, bound } =
+    name <> " <: " <> show bound
 
 data TySchema = MkTySchema
   { ltParams :: [LtName]
@@ -59,8 +84,15 @@ data TySchema = MkTySchema
   , ty :: MonoTy
   }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
-  deriving anyclass Out
-  deriving Show via OutShow TySchema
+  deriving Out via ShowOut TySchema
+
+instance Show TySchema where
+  show MkTySchema { ltParams, tyParams, ty } = concat
+    [ if null ltParams && null tyParams then "" else "forall"
+    , if null ltParams then "" else "[" <> List.intercalate ", " ltParams <> "]"
+    , if null tyParams then "" else "<" <> List.intercalate ", " (show <$> tyParams) <> "> "
+    , show ty
+    ]
 
 type EffSig = Map OpName OpSig
 

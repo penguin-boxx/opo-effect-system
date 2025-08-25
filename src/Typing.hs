@@ -47,20 +47,19 @@ inferExpr = \case
     pure $ emptyTySchema $ tySubst @ (ltSubst @ ty)
 
   Lam MkLam { ctxParams, params, body } -> do
-    let ?tyCtx =
-          map (paramsToTyCtxEntry True) ctxParams ++
-          map (paramsToTyCtxEntry False) params ++
-          ?tyCtx
-    res <- inferExpr body >>= ensureMonoTy
+    let ctxDiff = map (paramsToTyCtxEntry True) ctxParams <> map (paramsToTyCtxEntry False) params
+    res <- let ?tyCtx = ctxDiff ++ ?tyCtx in inferExpr body >>= ensureMonoTy
+    -- Do not consider bounds in escape checking.
     let resLts = let ?tyCtx = [] in emptyTySchema res `lifetimesOn` PositivePos
     when (LtLocal `Set.member` resLts) $
       throwError $ "Tracked value escapes via return value of type " <> show res
     let boundVars = folded % #name `toSetOf` (ctxParams <> params)
     let freeVarNames = freeVars body \\ boundVars
     freeVarsSchemas <- mapM (?tyCtx `lookup`) (Set.toList freeVarNames)
-    let paramFreeTyVars = (ctxParams ++ params) & folded % #ty `foldMapOf` (`freeTyVarsAt` NegativePos)
+    let paramFreeTyVars = (ctxParams <> params) & folded % #ty `foldMapOf` (`freeTyVarsAt` NegativePos)
     let resFreeTyVars = res `freeTyVarsAt` PositivePos
-    let freeLts = let ?tyCtx = filterVars (paramFreeTyVars <> resFreeTyVars) ?tyCtx in
+    let freeLts =
+          let ?tyCtx = filterVars (paramFreeTyVars <> resFreeTyVars) ?tyCtx in
           foldMap (`lifetimesOn` PositivePos) freeVarsSchemas
     pure $ emptyTySchema $ TyFun MkTyFun
       { ctx = each % #ty `toListOf` ctxParams
@@ -168,7 +167,7 @@ inferExpr = \case
 
   unsupported -> error $ "Unsupported construct: " <> show unsupported
 
-infix 2 `subTyOf`
+infix 6 `subTyOf`
 subTyOf :: (?tyCtx :: TyCtx) => MonoTy -> MonoTy -> Bool
 subTyOf = curry \case
   (TyVar name1, TyVar name2) -> name1 == name2
@@ -187,15 +186,23 @@ subTyOf = curry \case
     TyCtor MkTyCtor { name = "Any", lt = lt2 } ) -> lt1 `subLtOf` lt2
   _ -> False
 
+subTySchemaOf :: TySchema -> TySchema -> Bool
+subTySchemaOf
+  MkTySchema{ ltParams = ltParams1, tyParams = tyParams1, ty = ty1 }
+  MkTySchema{ ltParams = ltParams2, tyParams = tyParams2, ty = ty2 } =
+  -- TODO handle params properly
+  let ?tyCtx = TyCtxTy <$> tyParams2 in
+  ltParams1 == ltParams2 && tyParams1 == tyParams2 && ty1 `subTyOf` ty2
+
 subTyCtorOf :: CtorName -> CtorName -> Bool
 subTyCtorOf ctor1 ctor2 = ctor1 == ctor2 || ctor2 == "Any"
 
 subLtOf :: Lt -> Lt -> Bool
 subLtOf = curry \case
   (LtVar name1, LtVar name2) -> name1 == name2
-  (LtVar name, LtIntersect lts) -> name `Set.member` lts
-  (LtIntersect lts1, LtIntersect lts2) -> lts1 `Set.isSubsetOf` lts2
-  (lt1, lt2) -> lt1 == LtFree || lt2 == LtLocal
+  (LtVar name, LtMin lts) -> name `Set.member` lts
+  (LtMin lts1, LtMin lts2) -> lts1 `Set.isSubsetOf` lts2
+  (lt1, lt2) -> lt1 == LtFree || lt2 == LtLocal || lt1 == LtMin Set.empty -- todo
 
 paramsToTyCtxEntry :: Bool -> Param -> TyCtxEntry
 paramsToTyCtxEntry contextual MkParam { name, ty }
@@ -241,14 +248,22 @@ freeLtVarsOn ty expectedSign = ty
   & (`lifetimesOn` expectedSign)
   & foldMap extractVars
   where
-    extractVars = toSetOf (subTrees % _LtVar)
+    extractVars = \case
+      LtVar name -> Set.singleton name
+      LtMin names -> names
+      _ -> Set.empty
 
 lifetimesOn
   :: (HasCallStack, ?tyCtx :: TyCtx)
   => TySchema -> PositionSign -> Set Lt
 lifetimesOn MkTySchema{ ltParams, tyParams, ty } expectedSign =
+  let ?tyCtx = filterVars (each % #name `toSetOf` tyParams) ?tyCtx in
   let allLts = execWriter $ ty `goOn` PositivePos in
-  foldr (Set.delete . LtVar) allLts ltParams
+  let ltSet = Set.fromList ltParams in
+  flip foldMap allLts \case
+    LtVar name | name `Set.member` ltSet -> Set.empty
+    LtMin names -> Set.singleton $ LtMin (names \\ ltSet) `lub` LtFree -- to normalize
+    lt -> Set.singleton lt
   where
     goOn :: MonadWriter (Set Lt) m => MonoTy -> PositionSign -> m ()
     goOn ty currSign = case ty of

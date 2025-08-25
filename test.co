@@ -47,7 +47,7 @@ let withReader42 = fun<r>(f: context(Reader<Int>'local) () -> r)
     }
     f(r;)
 
-let withReader = fun<e, r>(f: context(Reader<e>'local) () -> r)
+let withReader = fun<e, r>(f: context(Reader<e>'local) ()'local -> r)
     handle r: Reader<e>'local {
         op ask() fun(e: e) resume(e)(e)
     }
@@ -82,12 +82,20 @@ data LazyList<a>
 
 fun lazyMap
     [lf, la, lb]<a <: Any'la, b <: Any'lb>
-    (xs: LazyList<a>, f: (a)'lf -> b):
-    LazyList<b>'lf+la =
+    (xs: LazyList<a>, f: (a)'lf -> b): LazyList<b>'lf+la =
     match xs {
         case LNil() -> LNil<b>()
         case LCons(h, t) -> LCons[lf+la, lf+la, lf+la]<b>(
             fun() f(h()),
             fun() lazyMap[lf, la, lb]<a, b>(t(), f)
         )
+    }
+
+data Pair<a, b> = Pair(a, b)
+
+fun mapFirst
+    [la, lb, lc]<a <: Any'la, b <: Any'lb, c <: Any'lc>
+    (p: Pair<a, b>, f: (a)'local -> c): Pair<c, b> =
+    match p {
+        case Pair(x, y) -> Pair<c, b>(f(x), y)
     }

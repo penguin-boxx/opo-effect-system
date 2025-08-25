@@ -84,7 +84,7 @@ lt =
   where
     vars = nonEmptyList (tok "+") (identifier lower) <&> \case
       [name] -> LtVar name
-      names -> LtIntersect $ Set.fromList names
+      names -> LtMin $ Set.fromList names
 
 monoTy :: Parser MonoTy
 monoTy =

@@ -7,6 +7,7 @@ import Data.Map (Map)
 import Data.Map qualified as Map
 import Data.Set (Set)
 import Data.Set qualified as Set
+import Text.PrettyPrint qualified as Pretty
 import Text.PrettyPrint.GenericPretty
 import Data.Coerce
 import Data.Generics.Uniplate.Data (Uniplate)
@@ -19,22 +20,26 @@ type CtorName = String
 
 instance (Out k, Out v) => Out (Map k v) where
   doc = doc . Map.toList
-  docPrec = const doc
+  docPrec prec x = docPrec prec (Map.toList x)
 
 instance (Out a, Ord a) => Out (Set a) where
   doc = doc . Set.toAscList
-  docPrec = const doc
+  docPrec prec x = docPrec prec (Set.toAscList x)
 
 newtype OutShow a = OutShow a
-
 instance Out a => Show (OutShow a) where
   show (OutShow x) = pretty x
+
+newtype ShowOut a = ShowOut a
+instance Show a => Out (ShowOut a) where
+  doc (ShowOut x) = Pretty.text (show x)
+  docPrec = const doc
 
 subTrees :: Uniplate a => Fold a a
 subTrees = to Uniplate.universe % folded
 
 toSetOf :: (Is k A_Fold, Ord a) => Optic' k is s a -> s -> Set a
-toSetOf o = foldMapOf o Set.singleton
+toSetOf o = o `foldMapOf` Set.singleton
 
 class From from to where
   from :: from -> to

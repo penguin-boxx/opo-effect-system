@@ -65,8 +65,8 @@ typecheck effCtx tyCtx prog = fold . reverse <$> flip evalStateT tyCtx do
     let ?effCtx = effCtx
     let ?tyCtx = recursion ++ tyCtx
     tySchema <- runExceptT (inferExpr body) >>= either error pure
-    when (isJust expectedTy && Just tySchema /= expectedTy) $
+    when (isJust expectedTy && not (tySchema `subTySchemaOf` fromJust expectedTy)) $
       liftIO $ throwIO $ userError $
-        "Unexpected type for '" <> name <> "': " <> show tySchema <> "\n !=\n" <> show (fromJust expectedTy)
+        "Unexpected type for '" <> name <> "':\n" <> show tySchema <> "\n not subtype of \n" <> show (fromJust expectedTy)
     modify (TyCtxVar MkTyCtxVar { name, tySchema } :)
     pure $ Map.singleton name tySchema
