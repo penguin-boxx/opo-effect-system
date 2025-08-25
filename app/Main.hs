@@ -30,7 +30,7 @@ main = getArgs >>= \case
   ["type", target] -> do
     prog <- parseProg <$> readFile fileName
     let (effCtx, tyCtx) = collectDecls prog
-    let types = typeLets effCtx tyCtx prog
+    types <- typecheck effCtx tyCtx prog
     case types !? target of
       Nothing -> putStrLn $ "Name " <> target <> " not found"
       Just ty -> putStrLn $ "Type: " <> show ty

@@ -11,10 +11,12 @@ import Parser qualified
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Except
+import Control.Exception
 import Data.Function
 import Data.Foldable
 import Data.Map (Map)
 import Data.Map qualified as Map
+import Data.Maybe
 import Text.Parsec
 import Optics
 
@@ -53,17 +55,18 @@ collectDecls prog =
       & foldMap ((`lifetimesOn` PositivePos) . emptyTySchema)
       & foldr lub LtFree
 
-typeLets :: EffCtx -> TyCtx -> Prog -> Map String TySchema
-typeLets effCtx tyCtx prog = fold $ reverse $ flip evalState tyCtx do
-  let ?effCtx = effCtx
+typecheck :: EffCtx -> TyCtx -> Prog -> IO (Map String TySchema)
+typecheck effCtx tyCtx prog = fold . reverse <$> flip evalStateT tyCtx do
   forM (each % _VarDecl `toListOf` prog) $ \MkVarDecl{ name, body, expectedTy } -> do
     tyCtx <- get
-    let ?tyCtx = case expectedTy of
-          Nothing -> tyCtx
-          Just ty -> let rec = TyCtxVar MkTyCtxVar { name, tySchema = ty } in rec : tyCtx
+    let recursion = case expectedTy of
+          Nothing -> []
+          Just ty -> [TyCtxVar MkTyCtxVar { name, tySchema = ty }]
+    let ?effCtx = effCtx
+    let ?tyCtx = recursion ++ tyCtx
     tySchema <- runExceptT (inferExpr body) >>= either error pure
-    case expectedTy of
-      Nothing -> pure ()
-      Just ty -> unless (tySchema == ty) $ error "Unexpected type"
+    when (isJust expectedTy && Just tySchema /= expectedTy) $
+      liftIO $ throwIO $ userError $
+        "Unexpected type for '" <> name <> "': " <> show tySchema <> "\n !=\n" <> show (fromJust expectedTy)
     modify (TyCtxVar MkTyCtxVar { name, tySchema } :)
     pure $ Map.singleton name tySchema
