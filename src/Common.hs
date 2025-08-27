@@ -14,10 +14,6 @@ import Data.Generics.Uniplate.Data (Uniplate)
 import Data.Generics.Uniplate.Data qualified as Uniplate
 import Optics
 
-type VarName = String
-type OpName = String
-type CtorName = String
-
 instance (Out k, Out v) => Out (Map k v) where
   doc = doc . Map.toList
   docPrec prec x = docPrec prec (Map.toList x)

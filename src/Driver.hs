@@ -57,16 +57,35 @@ collectDecls prog =
 
 typecheck :: EffCtx -> TyCtx -> Prog -> IO (Map String TySchema)
 typecheck effCtx tyCtx prog = fold . reverse <$> flip evalStateT tyCtx do
-  forM (each % _VarDecl `toListOf` prog) $ \MkVarDecl{ name, body, expectedTy } -> do
-    tyCtx <- get
-    let recursion = case expectedTy of
-          Nothing -> []
-          Just ty -> [TyCtxVar MkTyCtxVar { name, tySchema = ty }]
-    let ?effCtx = effCtx
-    let ?tyCtx = recursion ++ tyCtx
-    tySchema <- runExceptT (inferExpr body) >>= either error pure
-    when (isJust expectedTy && not (tySchema `subTySchemaOf` fromJust expectedTy)) $
-      liftIO $ throwIO $ userError $
-        "Unexpected type for '" <> name <> "':\n" <> show tySchema <> "\n not subtype of \n" <> show (fromJust expectedTy)
-    modify (TyCtxVar MkTyCtxVar { name, tySchema } :)
-    pure $ Map.singleton name tySchema
+  let ?effCtx = effCtx
+  forM prog \case
+    VarDecl MkVarDecl{ name, body, expectedTy } -> do
+      tyCtx <- get
+      let ?tyCtx = tyCtx
+      tySchema <- runExceptT (inferExpr body) >>= either error pure
+      when (isJust expectedTy && not (tySchema `subTySchemaOf` fromJust expectedTy)) $
+        liftIO $ throwIO $ userError $
+          "Unexpected type for '" <> name <> "':\n" <> show tySchema <> "\n not subtype of \n" <> show (fromJust expectedTy)
+      modify (TyCtxVar MkTyCtxVar { name, tySchema } :)
+      pure $ Map.singleton name tySchema
+    FunDecl MkFunDecl { name, ltParams, tyParams, ctxParams, params, body, resTy } -> do
+      let expectedTy = MkTySchema
+            { ltParams, tyParams
+            , ty = TyFun MkTyFun
+                { ctx = each % #ty `toListOf` ctxParams
+                , lt = LtFree
+                , args = each % #ty `toListOf` params
+                , res = resTy
+                }
+            }
+      let rec = TyCtxVar MkTyCtxVar { name, tySchema = expectedTy }
+      tyCtx <- get
+      let ?tyCtx = rec : tyCtx
+      let expr = TLam MkTLam { ltParams, tyParams, body = Lam MkLam { ctxParams, params, body } }
+      tySchema <- runExceptT (inferExpr expr) >>= either error pure
+      let actualResTy = #ty % _TyFun % #res `preview` tySchema
+      unless (actualResTy == Just resTy) $
+        liftIO $ throwIO $ userError $
+          "Result type mispatch: expected " <> show resTy <> " but got " <> show actualResTy
+      pure $ Map.singleton name tySchema
+    _ -> pure Map.empty

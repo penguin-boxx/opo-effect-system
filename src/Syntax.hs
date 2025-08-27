@@ -8,6 +8,9 @@ import Data.Typeable
 import Text.PrettyPrint.GenericPretty
 import Optics
 
+type VarName = String
+type CtorName = String
+
 data Expr
   = Const Int      -- just to debug semantics
   | Plus Expr Expr -- just to debug semantics
@@ -117,6 +120,7 @@ data Decl
   = DataDecl DataDecl
   | EffDecl EffDecl
   | VarDecl VarDecl
+  | FunDecl FunDecl
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
   deriving Show via OutShow Decl
@@ -156,6 +160,19 @@ data VarDecl = MkVarDecl
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
   deriving Show via OutShow VarDecl
+
+data FunDecl = MkFunDecl
+  { name :: VarName
+  , ltParams :: [LtName]
+  , tyParams :: [TyParam]
+  , ctxParams :: [Param]
+  , params :: [Param]
+  , body :: Expr
+  , resTy :: MonoTy
+  }
+  deriving stock (Eq, Ord, Data, Typeable, Generic)
+  deriving anyclass Out
+  deriving Show via OutShow FunDecl
 
 type Prog = [Decl]
 

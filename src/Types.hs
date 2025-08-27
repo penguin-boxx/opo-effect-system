@@ -15,6 +15,7 @@ import Optics
 
 type TyName = String
 type LtName = String
+type OpName = String
 
 -- | Lifetimes.
 data Lt

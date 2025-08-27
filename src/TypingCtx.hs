@@ -2,6 +2,7 @@ module TypingCtx where
 
 import Common
 import Types
+import Syntax
 
 import Data.Data
 import Data.List qualified as List

@@ -251,7 +251,7 @@ decl =
   DataDecl <$> dataDecl <|>
   EffDecl <$> effDecl <|>
   VarDecl <$> varDecl <|>
-  VarDecl <$> funDecl
+  FunDecl <$> funDecl
 
 dataDecl :: Parser DataDecl
 dataDecl = do
@@ -295,7 +295,7 @@ varDecl = do
   body <- expr
   pure MkVarDecl { name, body, expectedTy = Nothing }
 
-funDecl :: Parser VarDecl
+funDecl :: Parser FunDecl
 funDecl = do
   ctxParams <- option [] do
     tok "context"
@@ -309,21 +309,7 @@ funDecl = do
   resTy <- monoTy
   tok "="
   body <- expr
-  let lam = Lam MkLam { ctxParams, params, body }
-  let tlam = if null ltParams && null tyParams then lam else
-        TLam MkTLam { ltParams, tyParams, body = lam }
-  pure MkVarDecl
-    { name, body = tlam
-    , expectedTy = Just MkTySchema
-      { ltParams, tyParams
-      , ty = TyFun MkTyFun
-        { ctx = each % #ty `toListOf` ctxParams
-        , lt = LtFree
-        , args = each % #ty `toListOf` params
-        , res = resTy
-        }
-      }
-    }
+  pure MkFunDecl { name, ltParams, tyParams, ctxParams, params, body, resTy }
 
 prog :: Parser Prog
 prog = many decl <* eof
