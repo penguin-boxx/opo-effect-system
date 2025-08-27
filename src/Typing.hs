@@ -27,7 +27,7 @@ inferExpr
   => Expr -> m TySchema
 inferExpr = \case
   Const _ ->
-    pure $ emptyTySchema $ TyCtor MkTyCtor { name = "Int", lt = LtFree, args = [] }
+    pure $ emptyTySchema $ TyCtor MkTyCtor { name = "Int", lt = ltFree, args = [] }
 
   Var name -> ?tyCtx `lookup` name
 
@@ -64,7 +64,7 @@ inferExpr = \case
     pure $ emptyTySchema $ TyFun MkTyFun
       { ctx = each % #ty `toListOf` ctxParams
       , args = each % #ty `toListOf` params
-      , lt = foldr lub LtFree freeLts
+      , lt = foldr lub ltFree freeLts
       , res
       }
 
@@ -104,7 +104,7 @@ inferExpr = \case
         -- unless (posLts `Set.disjoint` negLts) $
         --   throwError "A lifetime variable should not occur in both positive and negative positions"
         posSubst <- mkSubst (Set.toList posLts) (replicate (Set.size posLts) lt)
-        negSubst <- mkSubst (Set.toList negLts) (replicate (Set.size negLts) LtFree)
+        negSubst <- mkSubst (Set.toList negLts) (replicate (Set.size negLts) ltFree)
         pure $ tySubst @ (posSubst @ (negSubst @ param))
       let mkCtxVar name param = TyCtxVar MkTyCtxVar { name, tySchema = emptyTySchema param }
       let ?tyCtx = zipWith mkCtxVar varPatterns params' ++ ?tyCtx
@@ -157,7 +157,7 @@ inferExpr = \case
       let opParamCtx = TyCtxVar <$> zipWith MkTyCtxVar paramNames (emptyTySchema <$> params)
       let resumeCtx = TyCtxVar MkTyCtxVar
             { name = "resume", tySchema = emptyTySchema $ TyFun MkTyFun
-                { ctx = [], lt = LtFree, args = [opResTy], res = resTy }
+                { ctx = [], lt = ltFree, args = [opResTy], res = resTy }
             }
       opRetTy <- let ?tyCtx = opParamCtx ++ resumeCtx : ?tyCtx in
         inferExpr (subst @ body) >>= ensureMonoTy
@@ -197,12 +197,11 @@ subTySchemaOf
 subTyCtorOf :: CtorName -> CtorName -> Bool
 subTyCtorOf ctor1 ctor2 = ctor1 == ctor2 || ctor2 == "Any"
 
+-- TODO tyCtx
 subLtOf :: Lt -> Lt -> Bool
 subLtOf = curry \case
-  (LtVar name1, LtVar name2) -> name1 == name2
-  (LtVar name, LtMin lts) -> name `Set.member` lts
   (LtMin lts1, LtMin lts2) -> lts1 `Set.isSubsetOf` lts2
-  (lt1, lt2) -> lt1 == LtFree || lt2 == LtLocal || lt1 == LtMin Set.empty -- todo
+  (_, lt) -> lt == LtLocal
 
 paramsToTyCtxEntry :: Bool -> Param -> TyCtxEntry
 paramsToTyCtxEntry contextual MkParam { name, ty }
@@ -249,7 +248,6 @@ freeLtVarsOn ty expectedSign = ty
   & foldMap extractVars
   where
     extractVars = \case
-      LtVar name -> Set.singleton name
       LtMin names -> names
       _ -> Set.empty
 
@@ -261,8 +259,7 @@ lifetimesOn MkTySchema{ ltParams, tyParams, ty } expectedSign =
   let allLts = execWriter $ ty `goOn` PositivePos in
   let ltSet = Set.fromList ltParams in
   flip foldMap allLts \case
-    LtVar name | name `Set.member` ltSet -> Set.empty
-    LtMin names -> Set.singleton $ LtMin (names \\ ltSet) `lub` LtFree -- to normalize
+    LtMin names -> Set.singleton $ LtMin (names \\ ltSet)
     lt -> Set.singleton lt
   where
     goOn :: MonadWriter (Set Lt) m => MonoTy -> PositionSign -> m ()

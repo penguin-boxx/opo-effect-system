@@ -46,10 +46,8 @@ mkSubst2 names1 target1 names2 target2 = do
 
 instance DoSubst target => Apply (Subst target) Lt Lt where
   f @ arg = case arg of
-    LtVar name -> onLt f name arg
     LtLocal -> LtLocal
-    LtFree -> LtFree
-    LtMin names -> foldr lub LtFree $ (\name -> onLt f name (LtVar name)) <$> Set.toList names
+    LtMin names -> foldr lub ltFree $ (\name -> onLt f name (ltVar name)) <$> Set.toList names
 
 instance DoSubst target => Apply (Subst target) MonoTy MonoTy where
   f @ arg = case arg of
@@ -97,13 +95,7 @@ instance LeastUpperBound Lt where
   type LubC Lt = ()
   lub LtLocal _ = LtLocal
   lub _ LtLocal = LtLocal
-  lub LtFree lt = lt
-  lub lt LtFree = lt
-  lub (LtMin names1) (LtMin names2) =
-    let names = names1 <> names2 in
-    if Set.size names == 1 then LtVar $ head $ Set.toList names else LtMin names
-  lub (LtVar name) lt = LtMin (Set.singleton name) `lub` lt
-  lub lt (LtVar name) = lt `lub` LtMin (Set.singleton name)
+  lub (LtMin names1) (LtMin names2) = LtMin (names1 <> names2)
 
 instance LeastUpperBound MonoTy where
   type LubC MonoTy = (?tyCtx :: TyCtx)

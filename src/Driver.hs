@@ -53,7 +53,7 @@ collectDecls prog =
   where
     ctorLifetime params = let ?tyCtx = [] in params
       & foldMap ((`lifetimesOn` PositivePos) . emptyTySchema)
-      & foldr lub LtFree
+      & foldr lub ltFree
 
 typecheck :: EffCtx -> TyCtx -> Prog -> IO (Map String TySchema)
 typecheck effCtx tyCtx prog = fold . reverse <$> flip evalStateT tyCtx do
@@ -73,7 +73,7 @@ typecheck effCtx tyCtx prog = fold . reverse <$> flip evalStateT tyCtx do
             { ltParams, tyParams
             , ty = TyFun MkTyFun
                 { ctx = each % #ty `toListOf` ctxParams
-                , lt = LtFree
+                , lt = ltFree
                 , args = each % #ty `toListOf` params
                 , res = resTy
                 }

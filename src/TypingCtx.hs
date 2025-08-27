@@ -73,7 +73,7 @@ instance MonadError String m => Lookup TyCtx VarName (m TySchema) where
     TyCtxCtor MkTyCtxCtor { name, ltParams, tyParams, params, res } : _ | name == targetName ->
       pure MkTySchema
         { ltParams, tyParams
-        , ty = TyFun MkTyFun { ctx = [], lt = LtFree, args = params, res = TyCtor res }
+        , ty = TyFun MkTyFun { ctx = [], lt = ltFree, args = params, res = TyCtor res }
         }
     _ : rest -> rest `lookup` targetName
 

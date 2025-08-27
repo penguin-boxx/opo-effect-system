@@ -79,12 +79,8 @@ nonEmptyList delimiter element = (:) <$> element <*> many (delimiter *> element)
 lt :: Parser Lt
 lt =
   LtLocal <$ tok "local" <|>
-  LtFree <$ tok "free" <|>
-  vars
-  where
-    vars = nonEmptyList (tok "+") (identifier lower) <&> \case
-      [name] -> LtVar name
-      names -> LtMin $ Set.fromList names
+  ltFree <$ tok "free" <|>
+  LtMin . Set.fromList <$> nonEmptyList (tok "+") (identifier lower)
 
 monoTy :: Parser MonoTy
 monoTy =
@@ -96,7 +92,7 @@ tyCtor :: Parser TyCtor
 tyCtor = do
   name <- identifier upper
   args <- option [] $ inAngles $ list (tok ",") monoTy
-  ctorLt <- option LtFree (tok "'" *> lt)
+  ctorLt <- option ltFree (tok "'" *> lt)
   pure MkTyCtor { name, lt = ctorLt, args }
 
 tyFun :: Parser TyFun
@@ -105,7 +101,7 @@ tyFun = do
     tok "context"
     inParens effRow
   args <- inParens $ list (tok ",") monoTy
-  funLt <- option LtFree (tok "'" *> lt)
+  funLt <- option ltFree (tok "'" *> lt)
   tok "->"
   res <- monoTy
   pure MkTyFun { ctx, lt = funLt, args, res }
