@@ -104,10 +104,10 @@ instance LookupBound LtName Lt where
     Left _ -> ltLocal
     Right x -> x
 
-lookupBound' :: HasCallStack => TyCtx -> VarName -> MonoTy
-lookupBound' tyCtx targetName = case runExcept (tyCtx `lookupBound` targetName) of
-  Left e -> error e
-  Right x -> x
+instance LookupBound VarName MonoTy where
+  lookupBound tyCtx targetName = case runExcept (tyCtx `lookupBound` targetName) of
+    Left e -> error e
+    Right x -> x
 
 instance Lookup TyCtx TyName [TyCtxCtor] where
   lookup tyCtx targetName =

@@ -278,10 +278,10 @@ opSig = do
   tok "op"
   name <- identifier lower
   tyParams <- option [] $ inAngles $ list (tok ",") $ identifier lower
-  params <- inParens $ list (tok ",") monoTy
+  args <- inParens $ list (tok ",") monoTy
   tok ":"
   res <- monoTy
-  pure (name, MkOpSig { tyParams, params, res })
+  pure (name, MkOpSig { tyParams, args, res })
 
 varDecl :: Parser VarDecl
 varDecl = do

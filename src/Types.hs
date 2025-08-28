@@ -109,7 +109,7 @@ type EffSig = Map OpName OpSig
 
 data OpSig = MkOpSig
   { tyParams :: [TyName]
-  , params :: [MonoTy]
+  , args :: [MonoTy]
   , res :: MonoTy
   }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
