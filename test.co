@@ -59,14 +59,29 @@ effect State<s> {
     op put(s): Unit
 }
 
-// todo bounds
-// let withState = fun[l]<s <: Any'l, r <: Any'l>(f: context(State<s>'local) () -> r)
-//     handle st: State<s>'local {
-//         op get() fun(s: s) resume(s)(s)
-//         op put(s) fun(old: s) resume(Unit())(s)
-//     }
-//     let x : r = f(st;) in
-//     fun(s: s) x
+fun downcast<t>(x: t): t = x
+
+fun withState
+    [ls, lr]<s <: Any'ls, r <: Any'lr>
+    (f: context(State<s>'local) ()'local -> r): (s)'ls -> r =
+    handle st: State<s>'local {
+        op get() fun(s: s) resume(s)(s)
+        op put(s) fun(old: s) resume(Unit())(s)
+    }
+    let x: r = f(st;) in
+    downcast<(s)'ls -> r>(fun(s: s) x)
+
+fun testWithState(): Unit =
+    withState[local, free]<Option<Reader<Unit>'local>, Unit'free>(
+        context(st: State<Option<Reader<Unit>'local>>'local) fun()
+            let x: Unit = withReader<Unit, Unit>(context(r: Reader<Unit>'local) fun()
+                perform st.put(Some<Reader<Unit>'local>(r))
+            )(Unit()) in
+            match perform st.get() {
+                case None() -> Unit()
+                case Some(r) -> perform r.ask()
+            }
+    )(None<Reader<Unit>'local>())
 
 let cps = fun(f: (File'local) -> Int)
     f(File())

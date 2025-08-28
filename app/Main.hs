@@ -27,6 +27,11 @@ main = getArgs >>= \case
   ["ast"] -> do
     prog <- parseProg <$> readFile fileName
     forM_ prog print
+  ["ast", target] -> do
+    prog <- parseProg <$> readFile fileName
+    case [decl | decl@(FunDecl MkFunDecl { name }) <- prog, name == target] of
+      [] -> putStrLn $ "Name " <> target <> " not found"
+      ast:_ -> putStrLn $ "Ast: " <> show ast
   ["type", target] -> do
     prog <- parseProg <$> readFile fileName
     let (effCtx, tyCtx) = collectDecls prog

@@ -39,9 +39,10 @@ inferExpr = \case
   TApp MkTApp { lhs, ltArgs, tyArgs } -> do
     MkTySchema { ltParams, tyParams, ty } <- inferExpr lhs
     ltSubst <- mkSubst ltParams ltArgs
-    tyParamNames <- forM (zip tyParams (ltSubst @ tyArgs)) \(MkTyParam { name, bound }, arg) -> do
-      unless (arg `subTyOf` bound) $
-        throwError $ "Type argument " <> show arg <> " is not a subtype of bound " <> show bound
+    tyParamNames <- forM (zip tyParams tyArgs) \(MkTyParam { name, bound }, arg) -> do
+      let bound' = ltSubst @ bound
+      unless (arg `subTyOf` bound') $
+        throwError $ "Type argument " <> show arg <> " is not a subtype of bound " <> show bound'
       pure name
     tySubst <- mkSubst tyParamNames tyArgs
     pure $ emptyTySchema $ tySubst @ (ltSubst @ ty)
@@ -170,7 +171,7 @@ subTyOf = curry \case
   (TyVar name1, ty) -> (?tyCtx `lookupBound'` name1) `subTyOf` ty
   ( TyCtor MkTyCtor { name = ctor1, lt = lt1, args = args1 },
     TyCtor MkTyCtor { name = ctor2, lt = lt2, args = args2 } ) ->
-    ctor1 `subTyCtorOf` ctor2 && lt1 `subLtOf` lt2 && args1 == args2
+    ctor1 `subTyCtorOf` ctor2 && lt1 `subLtOf` lt2 && args1 == args2 || ctor2 == "Any" && lt1 `subLtOf` lt2
   ( TyFun MkTyFun { lt = lt1, args = args1, res = res1 },
     TyFun MkTyFun { lt = lt2, args = args2, res = res2 } ) ->
     and $ zipWith subTyOf args2 args1 ++
@@ -178,7 +179,7 @@ subTyOf = curry \case
       , length args1 == length args2
       , res1 `subTyOf` res2
       ] -- TODO ctx
-  ( TyFun MkTyFun { lt = lt1 },
+  ( TyFun MkTyFun { lt = lt1 }, -- TODO subty Any
     TyCtor MkTyCtor { name = "Any", lt = lt2 } ) -> lt1 `subLtOf` lt2
   _ -> False
 
@@ -224,6 +225,8 @@ freeVars = \case
   Match MkMatch { scrutinee, branches } ->
     freeVars scrutinee <> flip foldMap branches \MkBranch{ varPatterns, body } ->
       freeVars body \\ Set.fromList varPatterns
+  Perform MkPerform { cap, args } ->
+    freeVars cap <> foldMap freeVars args
   Handle MkHandle { capName, handler, body } ->
     capName `Set.delete` freeVars body <>
     flip foldMap handler \MkHandlerEntry { paramNames, body } ->

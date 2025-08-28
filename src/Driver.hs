@@ -78,14 +78,15 @@ typecheck effCtx tyCtx prog = fold . reverse <$> flip evalStateT tyCtx do
                 , res = resTy
                 }
             }
-      let rec = TyCtxVar MkTyCtxVar { name, tySchema = expectedTy }
+      let currFun = TyCtxVar MkTyCtxVar { name, tySchema = expectedTy }
       tyCtx <- get
-      let ?tyCtx = rec : tyCtx
+      let ?tyCtx = currFun : tyCtx
       let expr = TLam MkTLam { ltParams, tyParams, body = Lam MkLam { ctxParams, params, body } }
       tySchema <- runExceptT (runFreshT (inferExpr expr)) >>= either error pure
       let actualResTy = #ty % _TyFun % #res `preview` tySchema
       unless (actualResTy == Just resTy) $
         liftIO $ throwIO $ userError $
           "Result type mispatch: expected " <> show resTy <> " but got " <> show actualResTy
+      modify (currFun :)
       pure $ Map.singleton name tySchema
     _ -> pure Map.empty
