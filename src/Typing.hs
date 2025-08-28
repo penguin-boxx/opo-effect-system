@@ -151,6 +151,9 @@ inferExpr = \case
         throwError "Operation generics should not leak"
       unless (length paramNames == length params) $
         throwError "Operation parameter number mismatch"
+      let paramLts = foldMap ((`lifetimesOn` PositivePos) . emptyTySchema) params
+      unless (ltFree == foldr lub ltFree paramLts) $
+        throwError $ "Capabilities can leak through '" <> opName <> "' operation parameters"
       let opParamCtx = TyCtxVar <$> zipWith MkTyCtxVar paramNames (emptyTySchema <$> params)
       let resumeCtx = TyCtxVar MkTyCtxVar
             { name = "resume", tySchema = emptyTySchema $ TyFun MkTyFun
@@ -171,7 +174,8 @@ subTyOf = curry \case
   (TyVar name1, ty) -> (?tyCtx `lookupBound'` name1) `subTyOf` ty
   ( TyCtor MkTyCtor { name = ctor1, lt = lt1, args = args1 },
     TyCtor MkTyCtor { name = ctor2, lt = lt2, args = args2 } ) ->
-    ctor1 `subTyCtorOf` ctor2 && lt1 `subLtOf` lt2 && args1 == args2 || ctor2 == "Any" && lt1 `subLtOf` lt2
+    ctor1 `subTyCtorOf` ctor2 && lt1 `subLtOf` lt2 && args1 == args2 ||
+    ctor2 == "Any" && foldr lub lt1 (foldMap ((`lifetimesOn` PositivePos) . emptyTySchema) args1) `subLtOf` lt2
   ( TyFun MkTyFun { lt = lt1, args = args1, res = res1 },
     TyFun MkTyFun { lt = lt2, args = args2, res = res2 } ) ->
     and $ zipWith subTyOf args2 args1 ++
