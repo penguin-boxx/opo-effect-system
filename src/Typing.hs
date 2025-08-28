@@ -23,7 +23,7 @@ import Optics
 import Prelude hiding (lookup)
 
 inferExpr
-  :: (MonadError String m, HasCallStack, ?effCtx :: EffCtx, ?tyCtx :: TyCtx)
+  :: (MonadError String m, MonadFresh LtName m, HasCallStack, ?effCtx :: EffCtx, ?tyCtx :: TyCtx)
   => Expr -> m TySchema
 inferExpr = \case
   Const _ ->
@@ -91,24 +91,20 @@ inferExpr = \case
         other -> throwError $ "Expected type ctor, got " <> show other
     let ctorCandidates = ?tyCtx `lookup` tyCtor
     resTys <- forM branches \MkBranch{ ctorName, varPatterns, body } -> do
-      MkTyCtxCtor { tyParams, params } <- ctorCandidates
+      MkTyCtxCtor { ltParams, tyParams, params } <- ctorCandidates
         & List.find @[] (\MkTyCtxCtor { name } -> name == ctorName)
         & maybe (throwError $ "Ctor " <> ctorName <> " do not have expected type") pure
       unless (length varPatterns == length params) $
         throwError $ "Number of var patterns mismatch for " <> ctorName
+      freshLts <- replicateM (length ltParams) fresh
+      ltSubst <- mkSubst ltParams (ltVar <$> freshLts)
+      ltSubstInv <- mkSubst freshLts (replicate (length ltParams) lt)
       tySubst <- mkSubst (toListOf (each % #name) tyParams) tyArgs
-      params' <- forM params \param -> do
-        let posLts = param `freeLtVarsOn` PositivePos
-        let negLts = param `freeLtVarsOn` NegativePos
-        -- TODO
-        -- unless (posLts `Set.disjoint` negLts) $
-        --   throwError "A lifetime variable should not occur in both positive and negative positions"
-        posSubst <- mkSubst (Set.toList posLts) (replicate (Set.size posLts) lt)
-        negSubst <- mkSubst (Set.toList negLts) (replicate (Set.size negLts) ltFree)
-        pure $ tySubst @ (posSubst @ (negSubst @ param))
+      let params' = map ((tySubst @) . (ltSubst @)) params
       let mkCtxVar name param = TyCtxVar MkTyCtxVar { name, tySchema = emptyTySchema param }
-      let ?tyCtx = zipWith mkCtxVar varPatterns params' ++ ?tyCtx
-      inferExpr body >>= ensureMonoTy
+      let mkCtxLt name = TyCtxLt MkTyCtxLt { name, bound = lt }
+      let ?tyCtx = map mkCtxLt freshLts ++ zipWith mkCtxVar varPatterns params' ++ ?tyCtx
+      inferExpr body >>= ensureMonoTy <&> (ltSubstInv @)
     when (null resTys) $
       throwError "There should be at least one branch" -- todo make Bot
     pure $ emptyTySchema $ foldr1 lub resTys
@@ -197,10 +193,10 @@ subTySchemaOf
 subTyCtorOf :: CtorName -> CtorName -> Bool
 subTyCtorOf ctor1 ctor2 = ctor1 == ctor2 || ctor2 == "Any"
 
--- TODO tyCtx
-subLtOf :: Lt -> Lt -> Bool
+subLtOf :: (?tyCtx :: TyCtx) => Lt -> Lt -> Bool
 subLtOf = curry \case
-  (LtMin lts1, LtMin lts2) -> lts1 `Set.isSubsetOf` lts2
+  (LtMin lts1, lt2@(LtMin lts2)) -> flip all lts1 \name ->
+    name `Set.member` lts2 || (?tyCtx `lookupBound` name) `subLtOf` lt2
   (_, lt) -> lt == LtLocal
 
 paramsToTyCtxEntry :: Bool -> Param -> TyCtxEntry

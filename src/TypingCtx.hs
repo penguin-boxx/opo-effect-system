@@ -21,6 +21,7 @@ data TyCtxEntry
   = TyCtxVar TyCtxVar
   | TyCtxCap TyCtxCap
   | TyCtxTy TyParam
+  | TyCtxLt TyCtxLt
   | TyCtxCtor TyCtxCtor
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
@@ -35,6 +36,11 @@ data TyCtxCap = MkTyCtxCap { name :: VarName, monoTy :: MonoTy }
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving anyclass Out
   deriving Show via OutShow TyCtxCap
+
+data TyCtxLt = MkTyCtxLt { name :: LtName, bound :: Lt }
+  deriving stock (Eq, Ord, Data, Typeable, Generic)
+  deriving anyclass Out
+  deriving Show via OutShow TyCtxLt
 
 data TyCtxCtor = MkTyCtxCtor
   { name :: CtorName
@@ -77,11 +83,26 @@ instance MonadError String m => Lookup TyCtx VarName (m TySchema) where
         }
     _ : rest -> rest `lookup` targetName
 
-lookupBound :: MonadError String m => TyCtx -> VarName -> m MonoTy
-lookupBound tyCtx targetName = case tyCtx of
+class LookupBound name res where
+  lookupBound :: TyCtx -> name -> res
+
+instance MonadError String m => LookupBound VarName (m MonoTy) where
+  lookupBound :: TyCtx -> VarName -> m MonoTy
+  lookupBound tyCtx targetName = case tyCtx of
+      [] -> throwError $ "Name not found '" <> targetName <> "' in ctx " <> show tyCtx
+      TyCtxTy MkTyParam { name, bound } : _ | name == targetName -> pure bound
+      _ : rest -> rest `lookupBound` targetName
+
+instance MonadError String m => LookupBound LtName (m Lt) where
+  lookupBound tyCtx targetName = case tyCtx of
     [] -> throwError $ "Name not found '" <> targetName <> "' in ctx " <> show tyCtx
-    TyCtxTy MkTyParam { name, bound } : _ | name == targetName -> pure bound
+    TyCtxLt MkTyCtxLt { name, bound } : _ | name == targetName -> pure bound
     _ : rest -> rest `lookupBound` targetName
+
+instance LookupBound LtName Lt where
+  lookupBound tyCtx targetName = case runExcept (tyCtx `lookupBound` targetName) of
+    Left _ -> ltLocal
+    Right x -> x
 
 lookupBound' :: HasCallStack => TyCtx -> VarName -> MonoTy
 lookupBound' tyCtx targetName = case runExcept (tyCtx `lookupBound` targetName) of

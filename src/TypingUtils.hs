@@ -7,6 +7,7 @@ import TypingCtx
 
 import Control.Monad
 import Control.Monad.Except
+import Control.Monad.State
 import Data.Map (Map, (!?))
 import Data.Map qualified as Map
 import Data.Set qualified as Set
@@ -117,3 +118,16 @@ instance LeastUpperBound MonoTy where
     | otherwise =
       TyCtor MkTyCtor { name = "Any", lt = lt1 `lub` lt2, args = [] }
   lub _ _ = top -- todo other cases
+
+
+class MonadFresh res m where
+  fresh :: m res
+
+runFreshT :: Functor m => StateT Int m a -> m a
+runFreshT = fmap fst . flip runStateT 0
+
+instance Monad m => MonadFresh LtName (StateT Int m) where
+  fresh = do
+    curr <- get
+    modify' (+1)
+    pure $ "$l" <> show curr

@@ -41,7 +41,7 @@ instance Show Lt where
     LtLocal -> "local"
     LtMin set
       | null set -> "free"
-      | otherwise -> List.intercalate "+" (Set.toList set)
+      | otherwise -> List.intercalate "+" (Set.toAscList set)
 
 data MonoTy = TyVar TyName | TyCtor TyCtor | TyFun TyFun
   deriving stock (Eq, Ord, Data, Typeable, Generic)

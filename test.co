@@ -99,3 +99,8 @@ fun mapFirst
     match p {
         case Pair(x, y) -> Pair<c, b>(f(x), y)
     }
+
+data Endo = Endo[l]((Int'l) -> Int'l)
+
+fun foldEndo[l0](x: Int'l0, endo: Endo'l0): Int'l0 =
+    match endo { case Endo(f) -> f(42) }
