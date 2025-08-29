@@ -2,6 +2,8 @@ data Unit = Unit
 
 data Option<a> = None | Some(a)
 
+data Result<e, a> = Error(e) | Ok(a)
+
 
 data List<a> = Nil | Cons(a, List<a>)
 
@@ -71,6 +73,22 @@ fun withState
 //                 case Some(r) -> perform r.ask()
 //             }
 //     )(None<Reader<Unit>'local>())
+
+
+effect Exception<e> {
+    op throw<a>(e): a
+}
+
+fun withException<e <: Any'free, r>(f: context(Exception<e>'local) () -> r): Result<e, r> =
+    handle h: Exception<e>'local {
+        op throw<a>(e) Error<e, r>(e)
+    }
+    Ok<e, r>(f(h;))
+
+let exampleException =
+    withException<Int, File>(context(h: Exception<Int>'local) fun()
+        perform h.throw<File>(42)
+    )
 
 
 data LazyList<a>

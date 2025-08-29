@@ -79,7 +79,7 @@ instance DoSubst target => Apply (Subst target) Expr Expr where
     RtHandler MkRtHandler { marker, body } -> RtHandler MkRtHandler { marker, body = f @ body }
 
 instance DoSubst target => Apply (Subst target) HandlerEntry HandlerEntry where
-  f @ MkHandlerEntry { opName, paramNames, body } = MkHandlerEntry { opName, paramNames, body = f @ body }
+  f @ MkHandlerEntry { opName, tyParams, paramNames, body } = MkHandlerEntry { opName, tyParams, paramNames, body = f @ body } -- todo
 
 instance DoSubst target => Apply (Subst target) Param Param where
   f @ MkParam { name, ty } = MkParam { name, ty = f @ ty }

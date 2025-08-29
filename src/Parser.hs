@@ -238,9 +238,10 @@ handlerEntry :: Parser HandlerEntry
 handlerEntry = do
   tok "op"
   opName <- identifier lower
+  tyParams <- option [] $ inAngles $ list (tok ",") $ identifier lower
   paramNames <- inParens $ list (tok ",") $ identifier lower
   body <- expr
-  pure MkHandlerEntry { opName, paramNames, body }
+  pure MkHandlerEntry { opName, tyParams, paramNames, body }
 
 decl :: Parser Decl
 decl =

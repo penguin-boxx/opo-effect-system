@@ -178,21 +178,22 @@ inferHandle MkHandle { capName, effTy, handler, body } = do
   checkEscape resTy
 
   MkEffCtxEntry { tyParams = effTyParams, ops } <- ?effCtx `lookup` effName
-  subst <- mkSubst effTyParams effTyArgs
+  effSubst <- mkSubst effTyParams effTyArgs
   unless (length handler == Map.size ops) $
     throwError "Wrong number of implemented operations"
-  forM_ handler \MkHandlerEntry { opName, paramNames, body } -> do
-    MkOpSig { args, res = opResTy } <-
+  forM_ handler \MkHandlerEntry { opName, tyParams = opDefTyParams, paramNames, body } -> do
+    MkOpSig { tyParams = opSigTyParams, args, res = opResTy } <-
       case ops !? opName of
         Nothing -> throwError $ "Operation " <> opName <> " is not specified for effect " <> effName
-        Just sig -> pure $ subst @ sig
+        Just sig -> pure $ effSubst @ sig
+    opSubst <- mkSubst opDefTyParams (TyVar <$> opSigTyParams)
     unless (length paramNames == length args) $
       throwError "Operation parameter number mismatch"
     unless (ltFree == lubAll (args `ltsAt` PositivePos)) $
       throwError $ "Capabilities can leak through '" <> opName <> "' operation parameters"
-    let opParamCtx = TyCtxVar <$> zipWith MkTyCtxVar paramNames (emptyTySchema <$> args)
-    opRetTy <- let ?tyCtx = mkResume opResTy resTy : opParamCtx ++ ?tyCtx in
-      inferExpr (subst @ body) >>= ensureMonoTy
+    let opParamCtx = TyCtxVar <$> zipWith MkTyCtxVar paramNames (emptyTySchema <$> (opSubst @ args))
+    opRetTy <- let ?tyCtx = mkResume (opSubst @ opResTy) resTy : opParamCtx ++ ?tyCtx in
+      inferExpr (effSubst @ body) >>= ensureMonoTy
     unless (opRetTy `subTyOf` resTy) $
       throwError $ "Operation " <> opName <> " return type " <> show opRetTy
         <> " is not a sustype of " <> show resTy

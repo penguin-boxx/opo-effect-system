@@ -101,6 +101,7 @@ type Handler = [HandlerEntry]
 
 data HandlerEntry = MkHandlerEntry
   { opName :: OpName
+  , tyParams :: [TyName]
   , paramNames :: [VarName]
   , body :: Expr
   }
