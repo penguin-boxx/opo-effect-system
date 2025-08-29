@@ -273,3 +273,17 @@ freeTyVarsAt ty expectedSign = execWriter (ty `goAt` PositivePos)
         forM_ ctx (`goAt` changeSign currSign)
         forM_ args (`goAt` changeSign  currSign)
         res `goAt` currSign
+
+lookupImplicit :: MonadError String m => TyCtx -> MonoTy -> m VarName
+lookupImplicit tyCtx target = go Set.empty tyCtx
+  where
+    go seen = let ?tyCtx = tyCtx in \case
+      [] -> throwError $ "No contextual value for " <> show target
+      TyCtxCap MkTyCtxCap { name, monoTy } : _ | monoTy `subTyOf` target ->
+        if name `Set.notMember` seen then pure name else
+          throwError $ "Variable '" <> name <> "' shadows appropriate implicit binding"
+      TyCtxVar MkTyCtxVar { name } : rest -> go (Set.insert name seen) rest
+      _ : rest -> go seen rest
+
+lookupImplicits :: MonadError String m => TyCtx -> [MonoTy] -> m [VarName]
+lookupImplicits tyCtx = mapM (tyCtx `lookupImplicit`)

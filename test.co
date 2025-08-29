@@ -45,13 +45,13 @@ let withReader42 = fun<r>(f: context(Reader<Int>'local) () -> r)
     handle r: Reader<Int>'local {
         op ask() resume(42)
     }
-    f(r;)
+    f()
 
 let withReader = fun<e, r>(f: context(Reader<e>'local) ()'local -> r)
     handle r: Reader<e>'local {
         op ask() fun(e: e) resume(e)(e)
     }
-    let x: r = f(r;) in
+    let x: r = f() in
     fun(e: e) x
 
 effect State<s> {
@@ -119,3 +119,6 @@ data Endo = Endo[l]((Int'l) -> Int'l)
 
 fun foldEndo[l0](x: Int'l0, endo: Endo'l0): Int'l0 =
     match endo { case Endo(f) -> f(42) }
+
+// context(x: Int'free, y: Int'local)
+// fun clash(): Unit = Unit()

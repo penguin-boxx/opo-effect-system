@@ -70,6 +70,7 @@ inferTApp MkTApp { lhs, ltArgs, tyArgs } = do
 
 inferLam :: TypingCtx m => Lam -> m TySchema
 inferLam MkLam { ctxParams, params, body } = do
+  checkDistinct ctxParams
   let ctxDiff = map (paramsToTyCtxEntry True) ctxParams <> map (paramsToTyCtxEntry False) params
   res <- let ?tyCtx = ctxDiff ++ ?tyCtx in inferExpr body >>= ensureMonoTy
   checkEscape res
@@ -92,13 +93,25 @@ inferLam MkLam { ctxParams, params, body } = do
         tySchema :: TySchema <- ?tyCtx `lookup` name
         pure $ lubAll $ tySchema `ltsAt` PositivePos
 
+    checkDistinct = \case
+      [] -> pure ()
+      MkParam { name = name1, ty = ty1 } : rest -> do
+        forM_ rest \MkParam { name = name2, ty = ty2 } ->
+          case ty1 `lub` ty2 of
+            TyCtor MkTyCtor { name = "Any" } -> pure ()
+            _ -> throwError $ "Parameters '" <> name1 <> "' and '" <> name2
+              <> " are likely to clash in implicit resolution"
+        checkDistinct rest
+
 inferApp :: TypingCtx m => App -> m TySchema
 inferApp MkApp { callee, ctxArgs, args } = do
   MkTyFun { ctx = expectedCtxArgs, args = expectedArgs, res } <-
     inferExpr callee >>= ensureMonoTy >>= \case
       TyFun fun -> pure fun
       other -> throwError $ "Expected function, got " <> show other
-  actualCtxArgs <- mapM (ensureMonoTy <=< inferExpr) ctxArgs
+  foundCtxArgs <- if not $ null ctxArgs then pure ctxArgs else
+    fmap Var <$> ?tyCtx `lookupImplicits` expectedCtxArgs
+  actualCtxArgs <- mapM (ensureMonoTy <=< inferExpr) foundCtxArgs
   actualArgs <- mapM (ensureMonoTy <=< inferExpr) args
   actualCtxArgs `checkArgsVs` expectedCtxArgs
   actualArgs `checkArgsVs` expectedArgs
