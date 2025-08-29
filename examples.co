@@ -1,65 +1,53 @@
-data Option<a> = None | Some(a)
-
 data Unit = Unit
 
-data Repository = Repository[l](Int'local, Int'l)
+data Option<a> = None | Some(a)
 
-data Q = Q[l]((Int'l) -> Int'l)
+
+data List<a> = Nil | Cons(a, List<a>)
+
+fun cons<a <: Any'local>(): (a) -> (List<a>) -> List<a> =
+    fun(x: a) fun(xs: List<a>) Cons<a>(x, xs)
+
 
 data File = File
 
-// let q = match Q[free](fun(x: Int'free) x) {
-//     case Q(id) -> 1
-// }
+fun withFile<r>(f: (File'local) -> r): r =
+    f(File())
 
-// (f: (b)' -> c, g: (a)' -> b) -> (x: a)'f+g -> c
-let compose = fun
-    [l1, l2, l3, l4, l5]
-    <a <: Any'l1, b <: Any'l2, c <: Any'l3>
-    (f: (b)'l4 -> c, g: (a)'l5 -> b)
+
+// (f: (b) -> c, g: (a) -> b) -> (x: a)'f+g -> c
+fun compose
+    [la, lb, lc, lf, lg]
+    <a <: Any'la, b <: Any'lb, c <: Any'lc>
+    (f: (b)'lf -> c, g: (a)'lg -> b): (a)'lb+lf+lg -> c =
     fun(x : a) f(g(x))
 
 let id = fun<a <: Any'local>(x: a) x
 
-let f = fun(y: Int) fun(x: Int) y
-let appF = (fun(y: Int) fun(x: Int) y)(1)(2)
+fun downcast<t>(x: t): t = x
 
-let r = Some<Int>(1)
-
-let m = match Some<(Int) -> Int>(fun(x: Int) x) {
-    case None() -> Some<Int>(1)
-    case Some(f) -> f(42)
-}
 
 effect Reader<e> {
     op ask(): e
 }
 
-let reader =
-    handle r: Reader<Int>'local {
-        op ask() resume(42)
-    }
-    perform r.ask()
-
-let withReader42 = fun<r>(f: context(Reader<Int>'local) () -> r)
-    handle r: Reader<Int>'local {
-        op ask() resume(42)
-    }
-    f()
-
-let withReader = fun<e, r>(f: context(Reader<e>'local) ()'local -> r)
+fun withReader<e, r>(f: context(Reader<e>'local) ()'local -> r): (e) -> r =
     handle r: Reader<e>'local {
         op ask() fun(e: e) resume(e)(e)
     }
     let x: r = f() in
     fun(e: e) x
 
+let readerExample =
+    handle r: Reader<Int>'local {
+        op ask() resume(42)
+    }
+    perform r.ask()
+
 effect State<s> {
     op get(): s
     op put(s): Unit
 }
-
-fun downcast<t>(x: t): t = x
 
 fun withState
     [lr]<s <: Any'free, r <: Any'lr>
@@ -68,9 +56,10 @@ fun withState
         op get() fun(s: s) resume(s)(s)
         op put(s) fun(old: s) resume(Unit())(s)
     }
-    let x: r = f(st;) in
+    let x: r = f() in
     fun(s: s) x
 
+// error
 // fun testWithState(): Unit =
 //     withState[free]<Option<Reader<Unit>'local>, Unit'free>(
 //         context(st: State<Option<Reader<Unit>'local>>'local) fun()
@@ -83,13 +72,6 @@ fun withState
 //             }
 //     )(None<Reader<Unit>'local>())
 
-let cps = fun(f: (File'local) -> Int)
-    f(File())
-
-data List<a> = Nil | Cons(a, List<a>)
-
-// cons : () -> (a) -> (List<a>) -> List<a>
-let cons = fun[l]<a <: Any'l>() fun(x: a) fun(xs: List<a>) Cons<a>(x, xs)
 
 data LazyList<a>
     = LNil
@@ -106,6 +88,7 @@ fun lazyMap
         )
     }
 
+
 data Pair<a, b> = Pair(a, b)
 
 fun mapFirst
@@ -115,10 +98,12 @@ fun mapFirst
         case Pair(x, y) -> Pair<c, b>(f(x), y)
     }
 
+
 data Endo = Endo[l]((Int'l) -> Int'l)
 
 fun foldEndo[l0](x: Int'l0, endo: Endo'l0): Int'l0 =
     match endo { case Endo(f) -> f(42) }
+
 
 // context(x: Int'free, y: Int'local)
 // fun clash(): Unit = Unit()

@@ -20,7 +20,7 @@ import System.Environment
 import Optics
 
 fileName :: String
-fileName = "test.co"
+fileName = "examples.co"
 
 main :: IO ()
 main = getArgs >>= \case
