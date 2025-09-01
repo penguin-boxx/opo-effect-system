@@ -125,3 +125,14 @@ fun foldEndo[l0](x: Int'l0, endo: Endo'l0): Int'l0 =
 
 // context(x: Int'free, y: Int'local)
 // fun clash(): Unit = Unit()
+
+
+effect Id {
+    op id<a>(a): a
+}
+
+fun withId<r>(f: context(Id'local) () -> r): r =
+    handle h: Id'local {
+        op id<b>(x) resume(x)
+    }
+    f()
