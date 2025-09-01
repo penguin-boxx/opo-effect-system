@@ -133,6 +133,6 @@ effect Id {
 
 fun withId<r>(f: context(Id) () -> r): r =
     handle h: Id {
-        op id<b>(x) resume(x)
+        op id(x) resume(x)
     }
     f()

@@ -186,7 +186,8 @@ inferHandle MkHandle { capName, effTy, handler, body } = do
       case ops !? opName of
         Nothing -> throwError $ "Operation " <> opName <> " is not specified for effect " <> effName
         Just sig -> pure $ effSubst @ sig
-    opSubst <- mkSubst opSigTyParams (TyVar <$> opDefTyParams)
+    opSubst <- mkSubst opSigTyParams $
+      TyVar <$> if null opDefTyParams then opSigTyParams else opDefTyParams
     let args' = opSubst @ args
     unless (length paramNames == length args') $
       throwError "Operation parameter number mismatch"
