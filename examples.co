@@ -119,7 +119,7 @@ fun mapFirst
 
 data Endo = Endo[l]((Int'l) -> Int'l)
 
-fun foldEndo[l0](x: Int'l0, endo: Endo'l0): Int'l0 =
+fun foldEndo[l0](_: Int'l0, endo: Endo'l0): Int'l0 =
     match endo { case Endo(f) -> f(42) }
 
 
