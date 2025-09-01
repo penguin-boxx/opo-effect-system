@@ -33,15 +33,15 @@ effect Reader<e> {
     op ask(): e
 }
 
-fun withReader<e, r>(f: context(Reader<e>'local) ()'local -> r): (e) -> r =
-    handle r: Reader<e>'local {
+fun withReader<e, r>(f: context(Reader<e>) ()'local -> r): (e) -> r =
+    handle r: Reader<e> {
         op ask() fun(e: e) resume(e)(e)
     }
     let x: r = f() in
     fun(e: e) x
 
 let readerExample =
-    handle r: Reader<Int>'local {
+    handle r: Reader<Int> {
         op ask() resume(42)
     }
     perform r.ask()
@@ -53,8 +53,8 @@ effect State<s> {
 
 fun withState
     [lr]<s <: Any'free, r <: Any'lr>
-    (f: context(State<s>'local) ()'local -> r): (s) -> r =
-    handle st: State<s>'local {
+    (f: context(State<s>) ()'local -> r): (s) -> r =
+    handle st: State<s> {
         op get() fun(s: s) resume(s)(s)
         op put(s) fun(old: s) resume(Unit())(s)
     }
@@ -79,14 +79,14 @@ effect Exception<e> {
     op throw<a>(e): a
 }
 
-fun withException<e <: Any'free, r>(f: context(Exception<e>'local) () -> r): Result<e, r> =
-    handle h: Exception<e>'local {
+fun withException<e <: Any'free, r>(f: context(Exception<e>) () -> r): Result<e, r> =
+    handle h: Exception<e> {
         op throw<a>(e) Error<e, r>(e)
     }
     Ok<e, r>(f(h;))
 
 let exampleException =
-    withException<Int, File>(context(h: Exception<Int>'local) fun()
+    withException<Int, File>(context(h: Exception<Int>) fun()
         perform h.throw<File>(42)
     )
 
@@ -131,8 +131,8 @@ effect Id {
     op id<a>(a): a
 }
 
-fun withId<r>(f: context(Id'local) () -> r): r =
-    handle h: Id'local {
+fun withId<r>(f: context(Id) () -> r): r =
+    handle h: Id {
         op id<b>(x) resume(x)
     }
     f()

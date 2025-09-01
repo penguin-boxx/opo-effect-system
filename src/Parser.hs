@@ -106,44 +106,50 @@ lt =
   ltFree <$ tok "free" <|>
   LtMin . Set.fromList <$> nonEmptyList (tok "+") ltName
 
-monoTy :: Parser MonoTy
-monoTy =
-  TyCtor <$> tyCtor <|>
-  TyFun <$> tyFun <|>
+monoTy :: Lt -> Parser MonoTy
+monoTy defaultLt =
+  TyCtor <$> tyCtor defaultLt <|>
+  TyFun <$> tyFun defaultLt <|>
   TyVar <$> tyVarName
 
-tyCtor :: Parser TyCtor
-tyCtor = do
+monoTyFree :: Parser MonoTy
+monoTyFree = monoTy ltFree
+
+monoTyLocal :: Parser MonoTy
+monoTyLocal = monoTy ltLocal
+
+tyCtor :: Lt -> Parser TyCtor
+tyCtor defaultLt = do
   name <- tyCtorName
-  args <- option [] $ inAngles $ list (tok ",") monoTy
-  ctorLt <- option ltFree (tok "'" *> lt)
+  args <- option [] $ inAngles $ list (tok ",") monoTyFree
+  ctorLt <- option defaultLt (tok "'" *> lt)
   pure MkTyCtor { name, lt = ctorLt, args }
 
-tyFun :: Parser TyFun
-tyFun = do
+tyFun :: Lt -> Parser TyFun
+tyFun defaultLt = do
   ctx <- option [] do
     tok "context"
     inParens effRow
-  args <- inParens $ list (tok ",") monoTy
-  funLt <- option ltFree (tok "'" *> lt) -- todo
+  args <- inParens $ list (tok ",") monoTyFree
+  funLt <- option defaultLt (tok "'" *> lt)
   tok "->"
-  res <- monoTy
+  res <- monoTyFree
   pure MkTyFun { ctx, lt = funLt, args, res }
 
 effRow :: Parser EffRow
-effRow = list (tok ",") monoTy
+effRow = list (tok ",") monoTyLocal
 
 tyParam :: Parser TyParam
 tyParam =
   MkTyParam <$>
   tyVarName <*>
-  option top (tok "<:" *> monoTy) -- todo default
+  option top (tok "<:" *> monoTyFree)
 
 tySchema :: Parser TySchema
 tySchema = do
   ltParams <- option [] $ inBrackets $ list (tok ",") ltName
   tyParams <- option [] $ inAngles $ list (tok ",") tyParam
-  ty <- monoTy
+  ty <- monoTyFree
   pure MkTySchema { ltParams, tyParams, ty }
 
 atom :: Parser Expr
@@ -159,7 +165,7 @@ atomWithPostfix = do
   target <- atom
   argBlocks <- many do
     ltArgs <- option [] $ inBrackets $ list (tok ",") lt
-    tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
+    tyArgs <- option [] $ inAngles $ list (tok ",") monoTyFree
     allArgs <- inParens do
       firstArgs <- list (tok ",") expr
       optionMaybe (tok ";") >>= \case
@@ -187,11 +193,11 @@ fun :: Parser Expr
 fun = do
   ctxParams <- option [] do
     tok "context"
-    inParens $ list (tok ",") param
+    inParens $ list (tok ",") paramLocal
   tok "fun"
   ltParams <- option [] $ inBrackets $ list (tok ",") ltName
   tyParams <- option [] $ inAngles $ list (tok ",") tyParam
-  params <- inParens $ list (tok ",") param
+  params <- inParens $ list (tok ",") paramFree
   body <- expr
   let lam = Lam MkLam { ctxParams, params, body }
   pure $ if null ltParams && null tyParams then lam else
@@ -202,7 +208,7 @@ letIn = do
   tok "let"
   name <- varNameDecl
   tok ":"
-  ty <- monoTy
+  ty <- monoTyFree
   tok "="
   e <- expr
   tok "in"
@@ -212,12 +218,18 @@ letIn = do
     , ctxArgs = [], args = [e]
     }
 
-param :: Parser Param
-param = do
+param :: Lt -> Parser Param
+param defaultLt = do
   name <- varNameDecl
   tok ":"
-  ty <- monoTy
+  ty <- monoTy defaultLt
   pure MkParam { name, ty }
+
+paramFree :: Parser Param
+paramFree = param ltFree
+
+paramLocal :: Parser Param
+paramLocal = param ltLocal
 
 match :: Parser Match
 match = do
@@ -241,7 +253,7 @@ perform = do
   cap <- expr
   tok "."
   opName <- opName
-  tyArgs <- option [] $ inAngles $ list (tok ",") monoTy
+  tyArgs <- option [] $ inAngles $ list (tok ",") monoTyFree
   args <- inParens $ list (tok ",") expr
   pure MkPerform { opName, cap, tyArgs, args }
 
@@ -250,7 +262,7 @@ handle = do
   tok "handle"
   capName <- varNameDecl
   tok ":"
-  effTy <- tyCtor
+  effTy <- tyCtor ltLocal
   h <- handler
   body <- expr
   pure MkHandle { capName, effTy, handler = h, body }
@@ -287,7 +299,7 @@ dataCtor :: Parser DataCtor
 dataCtor = do
   ctorName <- ctorName
   ltParams <- option [] $ inBrackets $ list (tok ",") ltName
-  params <- option [] $ inParens $ list (tok ",") monoTy
+  params <- option [] $ inParens $ list (tok ",") monoTyFree
   pure MkDataCtor { ctorName = ctorName, ltParams, params }
 
 effDecl :: Parser EffDecl
@@ -303,9 +315,9 @@ opSig = do
   tok "op"
   name <- opName
   tyParams <- option [] $ inAngles $ list (tok ",") tyVarName
-  args <- inParens $ list (tok ",") monoTy
+  args <- inParens $ list (tok ",") monoTyFree
   tok ":"
-  res <- monoTy
+  res <- monoTyFree
   pure (name, MkOpSig { tyParams, args, res })
 
 varDecl :: Parser VarDecl
@@ -320,14 +332,14 @@ funDecl :: Parser FunDecl
 funDecl = do
   ctxParams <- option [] do
     tok "context"
-    inParens $ list (tok ",") param
+    inParens $ list (tok ",") paramLocal
   tok "fun"
   name <- varName
   ltParams <- option [] $ inBrackets $ list (tok ",") ltName
   tyParams <- option [] $ inAngles $ list (tok ",") tyParam
-  params <- inParens $ list (tok ",") param
+  params <- inParens $ list (tok ",") paramFree
   tok ":"
-  resTy <- monoTy
+  resTy <- monoTyFree
   tok "="
   body <- expr
   pure MkFunDecl { name, ltParams, tyParams, ctxParams, params, body, resTy }
