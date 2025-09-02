@@ -37,16 +37,18 @@ instance DoSubst MonoTy where
 newtype Subst target = Subst { getSubst :: Map String target }
   deriving newtype Show
 
-mkSubst :: MonadError String m => [String] -> [target] -> m (Subst target)
+mkSubst :: (MonadError String m, HasCallStack) => [String] -> [target] -> m (Subst target)
 mkSubst names target = do
   unless (length names == length target) $
-    throwError "Unexpected number of parameters"
+    throwError $ "Unexpected number of parameters from\n" <> prettyCallStack callStack
   pure $ Subst $ Map.fromList $ zip names target
 
-mkSubst2 :: MonadError String m => [String] -> [target] -> [String] -> [target] -> m (Subst target)
+mkSubst2
+  :: (MonadError String m, HasCallStack)
+  => [String] -> [target] -> [String] -> [target] -> m (Subst target)
 mkSubst2 names1 target1 names2 target2 = do
   unless (length names1 == length target1 && length names2 == length target2) $
-    throwError "Unexpected number of parameters"
+    throwError $ "Unexpected number of parameters from\n" <> prettyCallStack callStack
   pure $ Subst $ Map.fromList $ zip names1 target1 ++ zip names2 target2
 
 instance DoSubst target => Apply (Subst target) Lt Lt where

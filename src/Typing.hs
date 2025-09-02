@@ -146,7 +146,6 @@ inferMatch MkMatch { scrutinee, branches } = do
     clearExistentials existentials lt =
       clearLt (Set.fromList existentials) lt (Just PositivePos)
 
-    mkCtxVar name param = TyCtxVar MkTyCtxVar { name, tySchema = emptyTySchema param }
     mkCtxLt lt name = TyCtxLt MkTyCtxLt { name, bound = lt }
 
 inferPerform :: TypingCtx m => Perform -> m TySchema
@@ -183,16 +182,18 @@ inferHandle MkHandle { capName, effTy, handler, body } = do
       case ops !? opName of
         Nothing -> throwError $ "Operation " <> opName <> " is not specified for effect " <> effName
         Just sig -> pure $ effSubst @ sig
-    opSubst <- mkSubst opSigTyParams $
-      TyVar <$> if null opDefTyParams then opSigTyParams else opDefTyParams
+    let opTyParams = if not $ null opDefTyParams then opDefTyParams else
+          replicate (length opSigTyParams) "_"
+    opSubst <- mkSubst opSigTyParams (TyVar <$> opTyParams)
     let args' = opSubst @ args
     unless (length paramNames == length args') $
       throwError "Operation parameter number mismatch"
     unless (ltFree == lubAll (args' `ltsAt` PositivePos)) $
       throwError $ "Capabilities can leak through '" <> opName <> "' operation parameters"
-    let opParamCtx = TyCtxVar <$> zipWith MkTyCtxVar paramNames (emptyTySchema <$> args')
-    -- todo insert type vars, otherwise they will take bounds from upper bounds
-    opRetTy <- let ?tyCtx = mkResume (opSubst @ opResTy) resTy : opParamCtx ++ ?tyCtx in
+    let tyBoundsCtx = opTyParams <&> (`mkCtxBound` tyAnyOf ltFree)
+    let opParamCtx = zipWith mkCtxVar paramNames args'
+    let resumeCtx = mkResume (opSubst @ opResTy) resTy
+    opRetTy <- let ?tyCtx = resumeCtx : tyBoundsCtx ++ opParamCtx ++ ?tyCtx in
       inferExpr (effSubst @ body) >>= ensureMonoTy
     unless (opRetTy `subTyOf` resTy) $
       throwError $ "Operation " <> opName <> " return type " <> show opRetTy
@@ -203,6 +204,8 @@ inferHandle MkHandle { capName, effTy, handler, body } = do
       { name = "resume", tySchema = emptyTySchema $ TyFun MkTyFun
           { ctx = [], lt = ltFree, args = [opResTy], res = resTy }
       }
+
+    mkCtxBound name bound = TyCtxTy MkTyParam { name, bound }
 
 checkArgsVs :: TypingCtx m => [MonoTy] -> [MonoTy] -> m ()
 checkArgsVs actualArgs expectedArgs = do
@@ -219,3 +222,6 @@ checkEscape res =
   let lts = let ?tyCtx = [] in res `ltsAt` PositivePos in
   when (LtLocal `Set.member` lts || LtStar `Set.member` lts) $
     throwError $ "Tracked value escapes via return value of type " <> show res
+
+mkCtxVar :: TyName -> MonoTy -> TyCtxEntry
+mkCtxVar name ty = TyCtxVar MkTyCtxVar { name, tySchema = emptyTySchema ty }

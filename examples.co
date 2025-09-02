@@ -156,3 +156,13 @@ fun withId<r>(f: context(Id) () -> r): r =
         op id(x) resume(x)
     }
     f()
+
+effect Optionality {
+    op mkSome<a>(a): Option<a>
+}
+
+let exampleOptionality =
+    handle o: Optionality {
+        op mkSome<b>(x) resume(Some<b>(x))
+    }
+    perform o.mkSome<Int>(42)

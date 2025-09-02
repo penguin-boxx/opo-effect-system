@@ -127,9 +127,16 @@ emptyTySchema = MkTySchema [] []
 class Top ty where
   top :: ty
 instance Top TyCtor where
-  top = MkTyCtor { name = "Any", lt = LtLocal, args = [] }
+  top = tyAnyOf LtLocal
 instance Top MonoTy where
   top = TyCtor top
+
+class AnyOf ty where
+  tyAnyOf :: Lt -> ty
+instance AnyOf TyCtor where
+  tyAnyOf lt = MkTyCtor { name = "Any", lt, args = [] }
+instance AnyOf MonoTy where
+  tyAnyOf = TyCtor . tyAnyOf
 
 makePrisms ''Lt
 makePrisms ''MonoTy
