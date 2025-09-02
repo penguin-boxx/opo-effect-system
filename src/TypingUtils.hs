@@ -181,8 +181,8 @@ subLtOf = curry \case
     name `Set.member` lts2 || (?tyCtx `lookupBound` name) `subLtOf` lt2
   (lt1, lt2) -> lt1 == ltFree || lt2 == LtLocal || lt1 == lt2
 
-clearLt :: Set LtName -> Lt -> Maybe PositionSign -> MonoTy -> MonoTy
-clearLt targetNames upperBound currSign = \case
+eliminateLts :: Set LtName -> Lt -> Maybe PositionSign -> MonoTy -> MonoTy
+eliminateLts targetNames upperBound currSign = \case
   TyVar name -> TyVar name
   TyCtor MkTyCtor { name, lt, args } -> TyCtor MkTyCtor
     { name
@@ -196,7 +196,7 @@ clearLt targetNames upperBound currSign = \case
     , res = rec currSign res
     }
   where
-    rec = clearLt targetNames upperBound
+    rec = eliminateLts targetNames upperBound
 
     approximateName name
       | name `Set.notMember` targetNames = ltVar name

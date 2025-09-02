@@ -138,13 +138,13 @@ inferMatch MkMatch { scrutinee, branches } = do
       throwError $ "Number of var patterns mismatch for " <> ctorName
     let paramCtx = zipWith mkCtxVar varPatterns params'
     let ?tyCtx = paramCtx ++ map (mkCtxLt lt) existentials ++ ?tyCtx
-    inferExpr body >>= ensureMonoTy <&> clearExistentials existentials lt
+    inferExpr body >>= ensureMonoTy <&> eliminateExistentials existentials lt
   when (null resTys) $
     throwError "There should be at least one branch"
   pure $ emptyTySchema $ foldr1 lub resTys
   where
-    clearExistentials existentials lt =
-      clearLt (Set.fromList existentials) lt (Just PositivePos)
+    eliminateExistentials existentials lt =
+      eliminateLts (Set.fromList existentials) lt (Just PositivePos)
 
     mkCtxLt lt name = TyCtxLt MkTyCtxLt { name, bound = lt }
 
