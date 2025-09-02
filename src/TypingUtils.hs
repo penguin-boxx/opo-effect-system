@@ -53,6 +53,7 @@ instance DoSubst target => Apply (Subst target) Lt Lt where
   f @ arg = case arg of
     LtLocal -> LtLocal
     LtMin names -> foldr lub ltFree $ (\name -> onLt f name (ltVar name)) <$> Set.toList names
+    LtStar -> LtStar
 
 instance DoSubst target => Apply (Subst target) MonoTy MonoTy where
   f @ arg = case arg of
@@ -100,6 +101,8 @@ instance LeastUpperBound Lt where
   type LubC Lt = ()
   lub LtLocal _ = LtLocal
   lub _ LtLocal = LtLocal
+  lub LtStar _ = LtStar
+  lub _ LtStar = LtStar
   lub (LtMin names1) (LtMin names2) = LtMin (names1 <> names2)
 
 instance LeastUpperBound MonoTy where
@@ -174,7 +177,36 @@ subLtOf :: (?tyCtx :: TyCtx) => Lt -> Lt -> Bool
 subLtOf = curry \case
   (LtMin lts1, lt2@(LtMin lts2)) -> flip all lts1 \name ->
     name `Set.member` lts2 || (?tyCtx `lookupBound` name) `subLtOf` lt2
-  (_, lt) -> lt == LtLocal
+  (lt1, lt2) -> lt1 == ltFree || lt2 == LtLocal || lt1 == lt2
+
+clearLt :: Set LtName -> Lt -> Maybe PositionSign -> MonoTy -> MonoTy
+clearLt targetNames upperBound currSign = \case
+  TyVar name -> TyVar name
+  TyCtor MkTyCtor { name, lt, args } -> TyCtor MkTyCtor
+    { name
+    , lt = approximate lt
+    , args = map (rec Nothing) args
+    }
+  TyFun MkTyFun { ctx, lt, args, res } -> TyFun MkTyFun
+    { ctx = map (rec (changeSign <$> currSign)) ctx
+    , lt = approximate lt
+    , args = map (rec (changeSign <$> currSign)) args
+    , res = rec currSign res
+    }
+  where
+    rec = clearLt targetNames upperBound
+
+    approximateName name
+      | name `Set.notMember` targetNames = ltVar name
+      | otherwise = case currSign of
+        Nothing -> LtStar
+        Just PositivePos -> upperBound
+        Just NegativePos -> ltFree
+
+    approximate = \case
+      LtLocal -> LtLocal
+      LtStar -> LtStar
+      LtMin (Set.toList -> names) -> lubAll $ map approximateName names
 
 paramsToTyCtxEntry :: Bool -> Param -> TyCtxEntry
 paramsToTyCtxEntry contextual MkParam { name, ty }

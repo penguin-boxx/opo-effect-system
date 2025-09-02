@@ -130,24 +130,21 @@ inferMatch MkMatch { scrutinee, branches } = do
     MkTyCtxCtor { ltParams, tyParams, params } <- ctorCandidates
       & List.find @[] (\MkTyCtxCtor { name } -> name == ctorName)
       & maybe (throwError $ "Ctor " <> ctorName <> " do not have expected type") pure
-    (ltSubst, ltSubstInv, ltCtx) <- genExistentialSubsts ltParams lt
+    existentials <- replicateM (length ltParams) fresh
+    ltSubst <- mkSubst ltParams (ltVar <$> existentials)
     tySubst <- mkSubst (each % #name `toListOf` tyParams) tyArgs
     let params' = map ((tySubst @) . (ltSubst @)) params
     unless (length varPatterns == length params) $
       throwError $ "Number of var patterns mismatch for " <> ctorName
     let paramCtx = zipWith mkCtxVar varPatterns params'
-    let ?tyCtx = paramCtx ++ ltCtx ++ ?tyCtx
-    inferExpr body >>= ensureMonoTy <&> (ltSubstInv @)
+    let ?tyCtx = paramCtx ++ map (mkCtxLt lt) existentials ++ ?tyCtx
+    inferExpr body >>= ensureMonoTy <&> clearExistentials existentials lt
   when (null resTys) $
     throwError "There should be at least one branch"
   pure $ emptyTySchema $ foldr1 lub resTys
   where
-    genExistentialSubsts ltParams lt = do
-      freshLts <- replicateM (length ltParams) fresh
-      ltSubst <- mkSubst ltParams (ltVar <$> freshLts)
-      ltSubstInv <- mkSubst freshLts (replicate (length ltParams) lt)
-      let ltCtx = map (mkCtxLt lt) freshLts
-      pure (ltSubst, ltSubstInv, ltCtx)
+    clearExistentials existentials lt =
+      clearLt (Set.fromList existentials) lt (Just PositivePos)
 
     mkCtxVar name param = TyCtxVar MkTyCtxVar { name, tySchema = emptyTySchema param }
     mkCtxLt lt name = TyCtxLt MkTyCtxLt { name, bound = lt }
@@ -194,6 +191,7 @@ inferHandle MkHandle { capName, effTy, handler, body } = do
     unless (ltFree == lubAll (args' `ltsAt` PositivePos)) $
       throwError $ "Capabilities can leak through '" <> opName <> "' operation parameters"
     let opParamCtx = TyCtxVar <$> zipWith MkTyCtxVar paramNames (emptyTySchema <$> args')
+    -- todo insert type vars, otherwise they will take bounds from upper bounds
     opRetTy <- let ?tyCtx = mkResume (opSubst @ opResTy) resTy : opParamCtx ++ ?tyCtx in
       inferExpr (effSubst @ body) >>= ensureMonoTy
     unless (opRetTy `subTyOf` resTy) $
@@ -218,5 +216,6 @@ checkArgsVs actualArgs expectedArgs = do
 checkEscape :: TypingCtx m => MonoTy -> m ()
 checkEscape res =
   -- Do not consider bounds in escape checking.
-  when (LtLocal `Set.member` let ?tyCtx = [] in res `ltsAt` PositivePos) $
+  let lts = let ?tyCtx = [] in res `ltsAt` PositivePos in
+  when (LtLocal `Set.member` lts || LtStar `Set.member` lts) $
     throwError $ "Tracked value escapes via return value of type " <> show res

@@ -117,10 +117,30 @@ fun mapFirst
     }
 
 
-data Endo = Endo[l]((Int'l) -> Int'l)
+data EndoI = EndoI[l]((Int'l) -> Int'l)
 
-fun foldEndo[l0](_: Int'l0, endo: Endo'l0): Int'l0 =
-    match endo { case Endo(f) -> f(42) }
+fun foldEndo[l0](_: Int'l0, endo: EndoI'l0): Int'l0 =
+    match endo { case EndoI(f) -> f(42) }
+
+data Endo<a> = Endo((a) -> a)
+data Trash = Trash[l](Endo<Int'l>)
+
+// error
+//fun crashEndo(x: Int'local): Unit =
+//    let trash: Trash'local = Trash[free](Endo<Int>(fun(x: Int) x)) in
+//    let endo: Endo<Int'*>'local = match trash { case Trash(endo) -> endo } in
+//    let _: Int'local = match endo { case Endo(f) -> f(x) } in
+//    Unit()
+
+//data Box = Box[l](Option<Int'l>)
+//let crashBox =
+//    let x: Int'local = 42 in
+//    let b: Box'local = Box[local](Some<Int'local>(x)) in
+//    let o: Option<Int'*> = match b { case Box(o) -> o } in
+//    match o {
+//        case None() -> 42
+//        case Some(x) -> x
+//    }
 
 
 // context(x: Int'free, y: Int'local)
