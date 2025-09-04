@@ -308,6 +308,9 @@ freeTyVarsAt ty expectedSign = execWriter (ty `goAt` PositivePos)
         forM_ args (`goAt` changeSign  currSign)
         res `goAt` currSign
 
+freeTyVars :: MonoTy -> Set TyName
+freeTyVars ty = ty `freeTyVarsAt` PositivePos <> ty `freeTyVarsAt` NegativePos
+
 lookupImplicit :: MonadError String m => TyCtx -> MonoTy -> m VarName
 lookupImplicit tyCtx target = go Set.empty tyCtx
   where

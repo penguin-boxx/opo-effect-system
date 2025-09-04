@@ -195,6 +195,8 @@ inferHandle MkHandle { capName, effTy, handler, body } = do
     let resumeCtx = mkResume (opSubst @ opResTy) resTy
     opRetTy <- let ?tyCtx = resumeCtx : tyBoundsCtx ++ opParamCtx ++ ?tyCtx in
       inferExpr (effSubst @ body) >>= ensureMonoTy
+    unless (Set.fromList opTyParams `Set.disjoint` freeTyVars opRetTy) $
+      throwError $ "Operation " <> opName <> " type parameters should not leak with return"
     unless (opRetTy `subTyOf` resTy) $
       throwError $ "Operation " <> opName <> " return type " <> show opRetTy
         <> " is not a sustype of " <> show resTy
