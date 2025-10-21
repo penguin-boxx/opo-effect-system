@@ -104,7 +104,6 @@ lt :: Parser Lt
 lt =
   LtLocal <$ tok "local" <|>
   ltFree <$ tok "free" <|>
-  LtStar <$ tok "*" <|>
   LtMin . Set.fromList <$> nonEmptyList (tok "+") ltName
 
 monoTy :: Lt -> Parser MonoTy

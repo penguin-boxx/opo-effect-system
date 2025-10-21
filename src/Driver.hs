@@ -52,7 +52,7 @@ collectDecls prog =
   (effCtx, tyCtx)
   where
     ctorLifetime params = let ?tyCtx = [] in params
-      & foldMap ((`ltsAt` PositivePos) . emptyTySchema)
+      & foldMap (ltsOf . emptyTySchema)
       & foldr lub ltFree
 
 typecheck :: EffCtx -> TyCtx -> Prog -> IO (Map String TySchema)

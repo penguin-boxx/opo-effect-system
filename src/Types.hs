@@ -21,7 +21,6 @@ type OpName = String
 data Lt
   = LtLocal
   | LtMin (Set LtName) -- size == 0 ==> LtFree; size == 1 ==> LtVar
-  | LtStar
   deriving stock (Eq, Ord, Data, Typeable, Generic)
   deriving Out via ShowOut Lt
 
@@ -37,13 +36,9 @@ ltFree = LtMin Set.empty
 ltMin :: Foldable f => f LtName -> Lt
 ltMin = LtMin . foldMap Set.singleton
 
-ltStar :: Lt
-ltStar = LtStar
-
 instance Show Lt where
   show = \case
     LtLocal -> "local"
-    LtStar -> "*"
     LtMin set
       | null set -> "free"
       | otherwise -> List.intercalate "+" (Set.toAscList set)

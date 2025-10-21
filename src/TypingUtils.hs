@@ -55,7 +55,6 @@ instance DoSubst target => Apply (Subst target) Lt Lt where
   f @ arg = case arg of
     LtLocal -> LtLocal
     LtMin names -> foldr lub ltFree $ (\name -> onLt f name (ltVar name)) <$> Set.toList names
-    LtStar -> LtStar
 
 instance DoSubst target => Apply (Subst target) MonoTy MonoTy where
   f @ arg = case arg of
@@ -103,8 +102,6 @@ instance LeastUpperBound Lt where
   type LubC Lt = ()
   lub LtLocal _ = LtLocal
   lub _ LtLocal = LtLocal
-  lub LtStar _ = LtStar
-  lub _ LtStar = LtStar
   lub (LtMin names1) (LtMin names2) = LtMin (names1 <> names2)
 
 instance LeastUpperBound MonoTy where
@@ -123,7 +120,7 @@ instance LeastUpperBound MonoTy where
     | ctx1 == ctx2 && args1 == args2 = -- TODO greatest lower bound
       TyFun MkTyFun { ctx = ctx1, lt = lt1 `lub` lt2, args = args1, res = res1 `lub` res2 }
   lub ty1 ty2 =
-    let lt = lubAll (ty1 `ltsAt` PositivePos) `lub` lubAll (ty2 `ltsAt` PositivePos) in
+    let lt = lubAll (ltsOf ty1) `lub` lubAll (ltsOf ty2) in
     TyCtor MkTyCtor { name = "Any", lt, args = [] }
 
 lubAll :: Foldable f => f Lt -> Lt
@@ -147,7 +144,7 @@ infix 6 `subTyOf`
 subTyOf :: (?tyCtx :: TyCtx) => MonoTy -> MonoTy -> Bool
 subTyOf = curry \case
   (ty, TyCtor MkTyCtor { name = "Any", lt = lt2 }) ->
-    lubAll (ty `ltsAt` PositivePos) `subLtOf` lt2
+    lubAll (ltsOf ty) `subLtOf` lt2
 
   (TyVar name1, TyVar name2) -> name1 == name2
   (TyVar name1, ty) -> (?tyCtx `lookupBound` name1) `subTyOf` ty
@@ -201,13 +198,12 @@ eliminateLts targetNames upperBound currSign = \case
     approximateName name
       | name `Set.notMember` targetNames = ltVar name
       | otherwise = case currSign of
-        Nothing -> LtStar
+        Nothing -> error "Cannot leak existential lifetime"
         Just PositivePos -> upperBound
         Just NegativePos -> ltFree
 
     approximate = \case
       LtLocal -> LtLocal
-      LtStar -> LtStar
       LtMin (Set.toList -> names) -> lubAll $ map approximateName names
 
 paramsToTyCtxEntry :: Bool -> Param -> TyCtxEntry
@@ -251,46 +247,35 @@ changeSign = \case PositivePos -> NegativePos; NegativePos -> PositivePos
 freeLtVarsOf
   :: (HasCallStack, ?tyCtx :: TyCtx)
   => MonoTy -> Set LtName
-freeLtVarsOf ty =
-  let lts = ty `ltsAt` PositivePos <> ty `ltsAt` NegativePos in
-  folded % _LtMin % folded `toSetOf` lts
+freeLtVarsOf ty = folded % _LtMin % folded `toSetOf` ltsOf ty
 
-class LifetimesAt ty where
-  ltsAt
+class LifetimesOf ty where
+  ltsOf
     :: (HasCallStack, ?tyCtx :: TyCtx)
-    => ty -> PositionSign -> Set Lt
+    => ty -> Set Lt
 
-instance LifetimesAt ty => LifetimesAt [ty] where
-  ltsAt tys expectedSign = fold $ tys <&> (`ltsAt` expectedSign)
+instance LifetimesOf ty => LifetimesOf [ty] where
+  ltsOf tys = fold $ ltsOf <$> tys
 
-instance LifetimesAt TySchema where
-  ltsAt MkTySchema{ ltParams, tyParams, ty } expectedSign =
+instance LifetimesOf TySchema where
+  ltsOf MkTySchema{ ltParams, tyParams, ty } =
     let ?tyCtx = filterVars (each % #name `toSetOf` tyParams) ?tyCtx in
-    let lts :: Set Lt = ty `ltsAt` expectedSign in
-    flip foldMap lts \case
+    flip foldMap (ltsOf ty :: Set Lt) \case
       LtMin names -> Set.singleton $ LtMin (names \\ Set.fromList ltParams)
       lt -> Set.singleton lt
 
-instance LifetimesAt MonoTy where
-  ltsAt monoTy expectedSign = execWriter $ monoTy `goFrom` PositivePos
+instance LifetimesOf MonoTy where
+  ltsOf monoTy = execWriter $ go monoTy
     where
-      goFrom :: MonadWriter (Set Lt) m => MonoTy -> PositionSign -> m ()
-      goFrom ty currSign = case ty of
-        TyVar name ->
-          runExceptT (?tyCtx `lookupBound` name) >>= \case
-            Left _ -> pure () -- ignore bounds of unknown type parameters
-            Right bound -> bound `goFrom` currSign
+      go = \case
+        TyVar name -> runExceptT (?tyCtx `lookupBound` name) >>= \case
+          Left _ -> pure () -- ignore bounds of unknown type parameters
+          Right bound -> go bound
         TyCtor MkTyCtor { lt, args } -> do
-          when (currSign == expectedSign) $
-            tell $ Set.singleton lt
-          -- Type parameters are invariant, include them in both ways.
-          forM_ args (`goFrom` currSign)
-          forM_ args (`goFrom` changeSign currSign)
-        TyFun MkTyFun { ctx, lt, args, res } -> do
-          forM_ (ctx <> args) (`goFrom` changeSign currSign)
-          when (currSign == expectedSign) $
-            tell $ Set.singleton lt
-          res `goFrom` currSign
+          tell $ Set.singleton lt
+          forM_ args go
+        TyFun MkTyFun { lt } ->
+          tell $ Set.singleton lt
 
 freeTyVarsAt :: MonoTy -> PositionSign -> Set TyName
 freeTyVarsAt ty expectedSign = execWriter (ty `goAt` PositivePos)

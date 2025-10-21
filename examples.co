@@ -5,24 +5,29 @@ data Option<a> = None | Some(a)
 data Result<e, a> = Error(e) | Ok(a)
 
 
-data List<a> = Nil | Cons(a, List<a>)
-
-fun cons<a <: Any'local>(): (a) -> (List<a>) -> List<a> =
-    fun(x: a) fun(xs: List<a>) Cons<a>(x, xs)
-
-
 data File = File
 
 fun withFile<r>(f: (File'local) -> r): r =
     f(File())
 
 
+data List<a> = Nil | Cons(a, List<a>)
+
+fun cons[la]<a <: Any'la>(x: a): (List<a>)'la -> List<a> =
+    fun(xs: List<a>) Cons<a>(x, xs)
+
+let list = cons[local]<File'local>(File())
+
+
+
 // (f: (b) -> c, g: (a) -> b) -> (x: a)'f+g -> c
 fun compose
-    [la, lb, lc, lf, lg]
-    <a <: Any'la, b <: Any'lb, c <: Any'lc>
-    (f: (b)'lf -> c, g: (a)'lg -> b): (a)'lb+lf+lg -> c =
+    [lf, lg]
+    <a <: Any'local, b <: Any'local, c <: Any'local>
+    (f: (b)'lf -> c, g: (a)'lg -> b): (a)'lf+lg -> c =
     fun(x : a) f(g(x))
+
+
 
 let id = fun<a <: Any'local>(x: a) x
 
@@ -33,7 +38,9 @@ effect Reader<e> {
     op ask(): e
 }
 
-fun withReader<e, r>(f: context(Reader<e>) ()'local -> r): (e) -> r =
+fun withReader[lr]<e, r <: Any'lr>(
+    f: context(Reader<e>) ()'local -> r
+): (e)'lr -> r =
     handle r: Reader<e> {
         op ask() fun(e: e) resume(e)(e)
     }
@@ -53,7 +60,7 @@ effect State<s> {
 
 fun withState
     [lr]<s <: Any'free, r <: Any'lr>
-    (f: context(State<s>) ()'local -> r): (s) -> r =
+    (f: context(State<s>) ()'local -> r): (s)'lr -> r =
     handle st: State<s> {
         op get() fun(s: s) resume(s)(s)
         op put(s) fun(old: s) resume(Unit())(s)

@@ -86,12 +86,12 @@ inferLam MkLam { ctxParams, params, body } = do
       let paramFreeTyVars = allParams & folded % #ty `foldMapOf` (`freeTyVarsAt` NegativePos) in
       let resFreeTyVars = res `freeTyVarsAt` PositivePos in
       -- Do not consider lifetimes that are already mentioned in positive positions of a function type.
-      let ?tyCtx = filterVars (paramFreeTyVars <> resFreeTyVars) ?tyCtx in
+      -- let ?tyCtx = filterVars (paramFreeTyVars <> resFreeTyVars) ?tyCtx in
       let boundVars = folded % #name `toSetOf` allParams in
       let lamFreeVars = freeVarsOf body \\ boundVars in
       lubAll <$> forM (Set.toList lamFreeVars) \name -> do
         tySchema :: TySchema <- ?tyCtx `lookup` name
-        pure $ lubAll $ tySchema `ltsAt` PositivePos
+        pure $ lubAll $ ltsOf tySchema
 
     checkDistinct = \case
       [] -> pure ()
@@ -188,7 +188,7 @@ inferHandle MkHandle { capName, effTy, handler, body } = do
     let args' = opSubst @ args
     unless (length paramNames == length args') $
       throwError "Operation parameter number mismatch"
-    unless (ltFree == lubAll (args' `ltsAt` PositivePos)) $
+    unless (ltFree == lubAll (ltsOf args')) $
       throwError $ "Capabilities can leak through '" <> opName <> "' operation parameters"
     let tyBoundsCtx = opTyParams <&> (`mkCtxBound` tyAnyOf ltFree)
     let opParamCtx = zipWith mkCtxVar paramNames args'
@@ -221,8 +221,8 @@ checkArgsVs actualArgs expectedArgs = do
 checkEscape :: TypingCtx m => MonoTy -> m ()
 checkEscape res =
   -- Do not consider bounds in escape checking.
-  let lts = let ?tyCtx = [] in res `ltsAt` PositivePos in
-  when (LtLocal `Set.member` lts || LtStar `Set.member` lts) $
+  let lts = let ?tyCtx = [] in ltsOf res in
+  when (LtLocal `Set.member` lts) $
     throwError $ "Tracked value escapes via return value of type " <> show res
 
 mkCtxVar :: TyName -> MonoTy -> TyCtxEntry
